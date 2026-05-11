@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, ShoppingCart, DollarSign, Receipt, Phone, Printer } from "lucide-react"
+import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer } from "lucide-react"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
 import type { Phone } from "@/types/database"
 
@@ -234,7 +234,7 @@ export default function SalesPage() {
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <div className="p-4 rounded-md bg-muted space-y-3">
                       <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <PhoneIcon className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Selected Phone</span>
                       </div>
                       <p className="font-medium">{selectedPhone.brand} {selectedPhone.model}</p>

@@ -27,7 +27,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen">
-      <Sidebar user={{ name: displayName, email: user.email, initials }} />
+      <Sidebar user={{ name: displayName, email: user.email || "", initials }} />
       <main className="flex flex-1 flex-col overflow-hidden">
         {/* Desktop header */}
         <header className="hidden lg:flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
