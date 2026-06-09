@@ -35,17 +35,67 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data, error } = await supabase
+    const {
+      brand,
+      model,
+      imei,
+      color,
+      ram,
+      storage,
+      battery_health,
+      condition,
+      pta_status,
+      seller_name,
+      seller_phone,
+      seller_cnic,
+      purchase_price,
+      payment_method,
+      notes,
+    } = result.data
+
+    // First, create the phone in inventory
+    const { data: phone, error: phoneError } = await supabase
+      .from("phones")
+      .insert({
+        brand,
+        model,
+        imei,
+        color,
+        ram,
+        storage,
+        battery_health,
+        condition,
+        pta_status,
+        purchase_price,
+        status: "In Stock",
+      })
+      .select()
+      .single()
+
+    if (phoneError) {
+      return NextResponse.json({ error: phoneError.message }, { status: 500 })
+    }
+
+    // Then create the purchase record linked to the phone
+    const { data: purchase, error: purchaseError } = await supabase
       .from("purchases")
-      .insert(result.data)
+      .insert({
+        phone_id: phone.id,
+        seller_name,
+        seller_phone,
+        seller_cnic,
+        purchase_price,
+        payment_method,
+        notes,
+      })
       .select("*, phones(brand, model, imei)")
       .single()
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (purchaseError) {
+      return NextResponse.json({ error: purchaseError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ purchase: data }, { status: 201 })
+    return NextResponse.json({ purchase, phone }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   }

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Package, ShoppingCart, TrendingUp, AlertTriangle, ArrowUpRight } from "lucide-react"
+import { Package, ShoppingCart, TrendingUp, ArrowUpRight } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
 import { createClient as createBrowserClient } from "@/lib/supabase/client"
@@ -17,7 +17,6 @@ interface DashboardData {
   todayPurchasesCount: number
   totalTodayPurchases: number
   recentSales: any[]
-  lowStock: any[]
 }
 
 export default function DashboardPage() {
@@ -30,7 +29,7 @@ export default function DashboardPage() {
       today.setHours(0, 0, 0, 0)
       const todayStr = today.toISOString()
 
-      const [phonesCount, todaySales, todayPurchases, recentSales, lowStock] = await Promise.all([
+      const [phonesCount, todaySales, todayPurchases, recentSales] = await Promise.all([
         supabase
           .from("phones")
           .select("*", { count: "exact", head: true })
@@ -52,12 +51,6 @@ export default function DashboardPage() {
           .select("*, phones(brand, model)")
           .order("created_at", { ascending: false })
           .limit(10),
-        supabase
-          .from("phones")
-          .select("*")
-          .eq("status", "In Stock")
-          .order("created_at", { ascending: true })
-          .limit(10),
       ])
 
       setData({
@@ -68,7 +61,6 @@ export default function DashboardPage() {
         todayPurchasesCount: todayPurchases.data?.length || 0,
         totalTodayPurchases: todayPurchases.data?.reduce((sum: number, p: any) => sum + (p.purchase_price || 0), 0) || 0,
         recentSales: recentSales.data || [],
-        lowStock: lowStock.data || [],
       })
     }
 
@@ -143,18 +135,17 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Today&apos;s Purchases</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.phonesCount < 10 ? data.phonesCount : 0}</div>
-            <p className="text-xs text-muted-foreground">items in stock</p>
+            <div className="text-2xl font-bold">{formatCurrency(data.totalTodayPurchases)}</div>
+            <p className="text-xs text-muted-foreground">{data.todayPurchasesCount} purchases today</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+      <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <ShoppingCart className="h-4 w-4" />
@@ -202,58 +193,6 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Low Stock Items
-            </CardTitle>
-            <CardDescription>
-              <Link href="/inventory" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-                View inventory
-                <ArrowUpRight className="h-3 w-3" />
-              </Link>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-md overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Device</TableHead>
-                    <TableHead>IMEI</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.lowStock.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                        No inventory items
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    data.lowStock.map((phone) => (
-                      <TableRow key={phone.id}>
-                        <TableCell className="font-medium">
-                          {phone.brand} {phone.model}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{phone.imei}</TableCell>
-                        <TableCell>
-                          <Badge variant={phone.status === "In Stock" ? "default" : "secondary"}>
-                            {phone.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }

@@ -49,6 +49,15 @@ export default function PurchasesPage() {
   const form = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
+      brand: "",
+      model: "",
+      imei: "",
+      color: "",
+      ram: "",
+      storage: "",
+      battery_health: "",
+      condition: "New",
+      pta_status: undefined,
       seller_name: "",
       seller_phone: "",
       seller_cnic: "",
@@ -175,29 +184,16 @@ export default function PurchasesPage() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="seller_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Seller Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Seller name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="text-sm font-medium text-muted-foreground">Phone Details</div>
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
-                  name="seller_phone"
+                  name="brand"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
+                      <FormLabel>Brand</FormLabel>
                       <FormControl>
-                        <Input placeholder="03XX-XXXXXXX" {...field} />
+                        <Input placeholder="e.g., Apple, Samsung" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -205,12 +201,12 @@ export default function PurchasesPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="seller_cnic"
+                  name="model"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CNIC</FormLabel>
+                      <FormLabel>Model</FormLabel>
                       <FormControl>
-                        <Input placeholder="XXXXX-XXXXXXX-X" {...field} />
+                        <Input placeholder="e.g., iPhone 15 Pro" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -218,19 +214,15 @@ export default function PurchasesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
-                  name="purchase_price"
+                  name="imei"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Purchase Price</FormLabel>
+                      <FormLabel>IMEI</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          value={field.value ?? ""}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                        />
+                        <Input placeholder="15-digit IMEI" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -238,28 +230,196 @@ export default function PurchasesPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="payment_method"
+                  name="color"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Payment Method</FormLabel>
+                      <FormLabel>Color</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Black, White" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <FormField
+                  control={form.control}
+                  name="ram"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>RAM</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 8GB" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="storage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Storage</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 256GB" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="battery_health"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Battery Health</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 95%" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="condition"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue />
+                            <SelectValue placeholder="Select condition" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Cash">Cash</SelectItem>
-                          <SelectItem value="Card">Card</SelectItem>
-                          <SelectItem value="Transfer">Transfer</SelectItem>
-                          <SelectItem value="JazzCash">JazzCash</SelectItem>
-                          <SelectItem value="EasyPaisa">EasyPaisa</SelectItem>
+                          <SelectItem value="New">New</SelectItem>
+                          <SelectItem value="Used">Used</SelectItem>
+                          <SelectItem value="Refurbished">Refurbished</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="pta_status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>PTA Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select PTA status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PTA">PTA</SelectItem>
+                          <SelectItem value="NON-PTA">NON-PTA</SelectItem>
+                          <SelectItem value="JV">JV</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="text-sm font-medium text-muted-foreground mb-3">Seller & Payment</div>
+                <FormField
+                  control={form.control}
+                  name="seller_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Seller Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Seller name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <FormField
+                    control={form.control}
+                    name="seller_phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="03XX-XXXXXXX" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="seller_cnic"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>CNIC</FormLabel>
+                        <FormControl>
+                          <Input placeholder="XXXXX-XXXXXXX-X" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <FormField
+                    control={form.control}
+                    name="purchase_price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Purchase Price</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="payment_method"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Method</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Cash">Cash</SelectItem>
+                            <SelectItem value="Card">Card</SelectItem>
+                            <SelectItem value="Transfer">Transfer</SelectItem>
+                            <SelectItem value="JazzCash">JazzCash</SelectItem>
+                            <SelectItem value="EasyPaisa">EasyPaisa</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <FormField

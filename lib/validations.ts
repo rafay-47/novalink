@@ -28,7 +28,15 @@ export const customerSchema = z.object({
 export type CustomerFormValues = z.infer<typeof customerSchema>
 
 export const purchaseSchema = z.object({
-  phone_id: z.string().optional(),
+  brand: z.string().min(1, "Brand is required"),
+  model: z.string().min(1, "Model is required"),
+  imei: z.string().min(1, "IMEI is required").max(20, "IMEI too long"),
+  color: z.string().optional(),
+  ram: z.string().optional(),
+  storage: z.string().optional(),
+  battery_health: z.string().optional(),
+  condition: z.enum(["New", "Used", "Refurbished"]),
+  pta_status: z.enum(["PTA", "NON-PTA", "JV"]).optional(),
   seller_name: z.string().min(1, "Seller name is required"),
   seller_phone: z.string().optional(),
   seller_cnic: z.string().optional(),

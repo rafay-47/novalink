@@ -62,6 +62,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+  const [statusFilter, setStatusFilter] = useState("In Stock")
 
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -74,13 +75,14 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchPhones()
-  }, [debouncedSearch])
+  }, [debouncedSearch, statusFilter])
 
   const fetchPhones = async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set("search", debouncedSearch)
+      if (statusFilter !== "all") params.set("status", statusFilter)
 
       const response = await fetch(`/api/phones?${params}`)
       const data = await response.json()
@@ -277,12 +279,8 @@ export default function InventoryPage() {
         </Button>
         <div className="hidden lg:flex items-center gap-4">
           <Select
-            onValueChange={(value) =>
-              setColumnFilters((prev) => [
-                ...prev.filter((f) => f.id !== "status"),
-                { id: "status", value },
-              ])
-            }
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value)}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Status" />
@@ -346,13 +344,8 @@ export default function InventoryPage() {
           </SheetHeader>
           <div className="space-y-4 mt-4">
             <Select
-              onValueChange={(value) =>
-                setColumnFilters((prev) => [
-                  ...prev.filter((f) => f.id !== "status"),
-                  { id: "status", value },
-                ])
-              }
-              defaultValue="all"
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Status" />
