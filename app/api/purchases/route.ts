@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     }
 
     const {
+      item_type,
       brand,
       model,
       imei,
@@ -51,15 +52,33 @@ export async function POST(request: Request) {
       purchase_price,
       payment_method,
       notes,
+      party_id,
+      amount_paid,
     } = result.data
 
-    // First, create the phone in inventory
+    const finalImei = imei || ("ACC-" + Math.random().toString(36).substring(2, 9).toUpperCase())
+
+    // If party_id provided, fetch party name to use as seller_name
+    let finalSellerName = seller_name
+    if (party_id) {
+      const { data: party } = await supabase
+        .from("parties")
+        .select("name")
+        .eq("id", party_id)
+        .single()
+      if (party) {
+        finalSellerName = party.name
+      }
+    }
+
+    // First, create the item in inventory
     const { data: phone, error: phoneError } = await supabase
       .from("phones")
       .insert({
+        item_type: item_type || "Phone",
         brand,
         model,
-        imei,
+        imei: finalImei,
         color,
         ram,
         storage,
@@ -81,7 +100,7 @@ export async function POST(request: Request) {
       .from("purchases")
       .insert({
         phone_id: phone.id,
-        seller_name,
+        seller_name: finalSellerName || "Individual Seller",
         seller_phone,
         seller_cnic,
         purchase_price,
@@ -93,6 +112,27 @@ export async function POST(request: Request) {
 
     if (purchaseError) {
       return NextResponse.json({ error: purchaseError.message }, { status: 500 })
+    }
+
+    // Dual-write: if party_id provided and remaining balance > 0, create credit purchase entry
+    if (party_id) {
+      const paid = amount_paid || 0
+      const remaining = purchase_price - paid
+      if (remaining > 0) {
+        await supabase
+          .from("party_transactions")
+          .insert({
+            party_id,
+            type: "credit_purchase",
+            amount: remaining,
+            reference_id: purchase.id,
+            reference_type: "purchase",
+            purchase_id: purchase.id,
+            payment_method: payment_method || null,
+            description: `Credit purchase: ${brand} ${model}`,
+            created_by: user.email,
+          })
+      }
     }
 
     return NextResponse.json({ purchase, phone }, { status: 201 })

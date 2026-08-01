@@ -37,14 +37,27 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Package } from "lucide-react"
-import { formatCurrency, formatDateTime } from "@/lib/utils"
+import { Plus, Package, User, Handshake, Smartphone, Zap } from "lucide-react"
+import { cn, formatCurrency, formatDateTime } from "@/lib/utils"
 import type { Purchase } from "@/types/database"
 
+export type PurchaseWithPhone = Purchase & {
+  phones?: {
+    item_type?: string | null
+    brand: string
+    model: string
+    imei: string
+  } | null
+}
+
 export default function PurchasesPage() {
-  const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [purchases, setPurchases] = useState<PurchaseWithPhone[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [parties, setParties] = useState<any[]>([])
+  const [purchaseSource, setPurchaseSource] = useState<"customer" | "party">("customer")
+  const [categoryTab, setCategoryTab] = useState<"phones" | "accessories">("phones")
+  
 
   const form = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
@@ -63,12 +76,15 @@ export default function PurchasesPage() {
       seller_cnic: "",
       purchase_price: 0,
       payment_method: "Cash",
+      party_id: "",
+      amount_paid: 0,
       notes: "",
     },
   })
 
   useEffect(() => {
     fetchPurchases()
+    fetchParties()
   }, [])
 
   const fetchPurchases = async () => {
@@ -82,6 +98,12 @@ export default function PurchasesPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchParties = async () => {
+    const response = await fetch("/api/parties")
+    const data = await response.json()
+    setParties(data.parties || [])
   }
 
   const onSubmit = async (values: PurchaseFormValues) => {
@@ -108,7 +130,7 @@ export default function PurchasesPage() {
         <div>
           <h1 className="text-xl font-semibold">Purchases</h1>
           <p className="text-sm text-muted-foreground">
-            Track phone purchases from suppliers
+            Track purchases from suppliers & individual sellers
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
@@ -117,11 +139,40 @@ export default function PurchasesPage() {
         </Button>
       </div>
 
+      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setCategoryTab("phones")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
+            categoryTab === "phones"
+              ? "bg-background shadow text-foreground font-semibold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Smartphone className="h-4 w-4" />
+          Mobile Phones
+        </button>
+        <button
+          type="button"
+          onClick={() => setCategoryTab("accessories")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
+            categoryTab === "accessories"
+              ? "bg-background shadow text-foreground font-semibold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Zap className="h-4 w-4" />
+          Adapters & Cables
+        </button>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Purchase History
+            Purchase History ({categoryTab === "phones" ? "Mobile Phones" : "Adapters & Cables"})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -130,30 +181,39 @@ export default function PurchasesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
+                  <TableHead>IMEI / Code</TableHead>
+                  <TableHead>Item Details</TableHead>
                   <TableHead>Seller</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Amount</TableHead>
-                  <TableHead>Payment</TableHead>
                   <TableHead>Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
-                ) : purchases.length === 0 ? (
+                ) : purchases.filter(p => categoryTab === "phones" ? (!p.phones?.item_type || p.phones?.item_type === "Phone") : (p.phones?.item_type === "Adapter" || p.phones?.item_type === "Cable")).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No purchases found
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No {categoryTab === "phones" ? "phone" : "adapter or cable"} purchases found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  purchases.map((purchase) => (
+                  purchases.filter(p => categoryTab === "phones" ? (!p.phones?.item_type || p.phones?.item_type === "Phone") : (p.phones?.item_type === "Adapter" || p.phones?.item_type === "Cable")).map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell className="text-sm">{formatDateTime(purchase.created_at)}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {purchase.phones?.imei || "N/A"}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {purchase.phones
+                          ? `${purchase.phones.brand} ${purchase.phones.model}`
+                          : "N/A"}
+                      </TableCell>
                       <TableCell className="font-medium">{purchase.seller_name}</TableCell>
                       <TableCell className="text-sm">
                         <div>{purchase.seller_phone || "N/A"}</div>
@@ -164,7 +224,6 @@ export default function PurchasesPage() {
                       <TableCell className="font-medium">
                         {formatCurrency(purchase.purchase_price)}
                       </TableCell>
-                      <TableCell>{purchase.payment_method}</TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[100px] truncate">
                         {purchase.notes || "-"}
                       </TableCell>
@@ -184,6 +243,28 @@ export default function PurchasesPage() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="item_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Item Category *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || "Phone"}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Phone">Mobile Phone</SelectItem>
+                        <SelectItem value="Adapter">Adapter / Charger</SelectItem>
+                        <SelectItem value="Cable">Cable / Wire</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="text-sm font-medium text-muted-foreground">Phone Details</div>
               <div className="grid grid-cols-2 gap-3">
                 <FormField
@@ -332,58 +413,159 @@ export default function PurchasesPage() {
                 />
               </div>
 
-              <div className="border-t pt-4">
-                <div className="text-sm font-medium text-muted-foreground mb-3">Seller & Payment</div>
-                <FormField
-                  control={form.control}
-                  name="seller_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Seller Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Seller name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4 mt-3">
-                  <FormField
-                    control={form.control}
-                    name="seller_phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <Input placeholder="03XX-XXXXXXX" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+              <div className="border-t pt-4 space-y-3">
+                <div className="text-sm font-medium text-muted-foreground">Purchase Source</div>
+                <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPurchaseSource("customer")
+                      form.setValue("party_id", "")
+                      form.setValue("amount_paid", 0)
+                    }}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                      purchaseSource === "customer"
+                        ? "bg-background shadow text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="seller_cnic"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CNIC</FormLabel>
-                        <FormControl>
-                          <Input placeholder="XXXXX-XXXXXXX-X" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    Individual Seller
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPurchaseSource("party")
+                      form.setValue("seller_name", "")
+                      form.setValue("seller_phone", "")
+                      form.setValue("seller_cnic", "")
+                    }}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                      purchaseSource === "party"
+                        ? "bg-background shadow text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
-                  />
+                  >
+                    <Handshake className="h-3.5 w-3.5" />
+                    Party / Dealer
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-3">
+                {purchaseSource === "customer" && (
+                  <div className="space-y-3 pt-1">
+                    <FormField
+                      control={form.control}
+                      name="seller_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Seller Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Seller name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="seller_phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input placeholder="03XX-XXXXXXX" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="seller_cnic"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CNIC</FormLabel>
+                            <FormControl>
+                              <Input placeholder="XXXXX-XXXXXXX-X" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {purchaseSource === "party" && (
+                  <div className="space-y-3 pt-1">
+                    <FormField
+                      control={form.control}
+                      name="party_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Select Party / Supplier *</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Choose a party" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {parties.map((party) => (
+                                <SelectItem key={party.id} value={party.id}>
+                                  {party.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="amount_paid"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount Paid Upfront</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="0 = full credit purchase"
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch("party_id") && (form.watch("purchase_price") || 0) > 0 && (
+                      <div className="p-3 rounded-md bg-muted text-sm flex justify-between items-center">
+                        <span className="text-muted-foreground">Remaining Balance (Credit):</span>
+                        <span className="font-semibold text-primary">
+                          {formatCurrency(
+                            (form.watch("purchase_price") || 0) - (form.watch("amount_paid") || 0)
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
                   <FormField
                     control={form.control}
                     name="purchase_price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Purchase Price</FormLabel>
+                        <FormLabel>Purchase Price *</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -421,20 +603,6 @@ export default function PurchasesPage() {
                   />
                 </div>
               </div>
-
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Optional notes" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <DialogFooter className="flex-col gap-2 sm:flex-row">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">

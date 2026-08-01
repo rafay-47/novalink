@@ -9,8 +9,10 @@ export type Json =
 export type PhoneCondition = 'New' | 'Used' | 'Refurbished'
 export type PhoneStatus = 'In Stock' | 'Sold' | 'Reserved' | 'Returned'
 export type PTAStatus = 'PTA' | 'NON-PTA' | 'JV'
+export type ItemType = 'Phone' | 'Adapter' | 'Cable'
 export type PaymentMethod = 'Cash' | 'Card' | 'Transfer' | 'JazzCash' | 'EasyPaisa' | 'Other'
 export type ExpenseCategory = 'Rent' | 'Electricity' | 'Internet' | 'Salary' | 'Accessories' | 'Repairs' | 'Miscellaneous'
+export type PartyTransactionType = 'credit_sale' | 'credit_purchase' | 'receipt' | 'payment' | 'adjustment'
 
 export interface Database {
   public: {
@@ -44,6 +46,7 @@ export interface Database {
       phones: {
         Row: {
           id: string
+          item_type: ItemType | null
           brand: string
           model: string
           imei: string
@@ -57,14 +60,17 @@ export interface Database {
           sale_price: number | null
           status: PhoneStatus | null
           notes: string | null
+          reserved_party_id: string | null
+          reserved_at: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
+          item_type?: ItemType | null
           brand: string
           model: string
-          imei: string
+          imei?: string | null
           color?: string | null
           ram?: string | null
           storage?: string | null
@@ -75,14 +81,17 @@ export interface Database {
           sale_price?: number | null
           status?: PhoneStatus | null
           notes?: string | null
+          reserved_party_id?: string | null
+          reserved_at?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
+          item_type?: ItemType | null
           brand?: string
           model?: string
-          imei?: string
+          imei?: string | null
           color?: string | null
           ram?: string | null
           storage?: string | null
@@ -93,6 +102,8 @@ export interface Database {
           sale_price?: number | null
           status?: PhoneStatus | null
           notes?: string | null
+          reserved_party_id?: string | null
+          reserved_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -225,7 +236,83 @@ export interface Database {
           amount?: number
           category?: ExpenseCategory | null
           notes?: string | null
+        }
+      }
+      parties: {
+        Row: {
+          id: string
+          name: string
+          contact_person: string | null
+          phone: string | null
+          address: string | null
+          opening_balance: number | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          contact_person?: string | null
+          phone?: string | null
+          address?: string | null
+          opening_balance?: number | null
+          notes?: string | null
           created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          contact_person?: string | null
+          phone?: string | null
+          address?: string | null
+          opening_balance?: number | null
+          notes?: string | null
+          updated_at?: string
+        }
+      }
+      party_transactions: {
+        Row: {
+          id: string
+          party_id: string
+          type: PartyTransactionType
+          amount: number
+          reference_id: string | null
+          reference_type: string | null
+          sale_id: string | null
+          purchase_id: string | null
+          payment_method: string | null
+          description: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          party_id: string
+          type: PartyTransactionType
+          amount: number
+          reference_id?: string | null
+          reference_type?: string | null
+          sale_id?: string | null
+          purchase_id?: string | null
+          payment_method?: string | null
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          party_id?: string
+          type?: PartyTransactionType
+          amount?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          sale_id?: string | null
+          purchase_id?: string | null
+          payment_method?: string | null
+          description?: string | null
+          created_by?: string | null
         }
       }
     }
@@ -252,9 +339,13 @@ export type Purchase = Row<'purchases'>
 export type Sale = Row<'sales'>
 export type Expense = Row<'expenses'>
 export type Profile = Row<'profiles'>
+export type Party = Row<'parties'>
+export type PartyTransaction = Row<'party_transactions'>
 
 export type PhoneInsert = Insert<'phones'>
 export type CustomerInsert = Insert<'customers'>
 export type PurchaseInsert = Insert<'purchases'>
 export type SaleInsert = Insert<'sales'>
 export type ExpenseInsert = Insert<'expenses'>
+export type PartyInsert = Insert<'parties'>
+export type PartyTransactionInsert = Insert<'party_transactions'>

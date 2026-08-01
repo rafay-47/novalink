@@ -27,6 +27,7 @@ export default function ReportsPage() {
   const [salesData, setSalesData] = useState<any[]>([])
   const [expensesData, setExpensesData] = useState<any[]>([])
   const [inventoryStats, setInventoryStats] = useState<any>(null)
+  const [partyBalances, setPartyBalances] = useState<any[]>([])
 
   useEffect(() => {
     fetchReports()
@@ -35,15 +36,17 @@ export default function ReportsPage() {
   const fetchReports = async () => {
     setLoading(true)
     try {
-      const [salesRes, expensesRes, phonesRes] = await Promise.all([
+      const [salesRes, expensesRes, phonesRes, partiesRes] = await Promise.all([
         fetch("/api/sales"),
         fetch("/api/expenses"),
         fetch("/api/phones"),
+        fetch("/api/parties"),
       ])
 
       const salesData = await salesRes.json()
       const expensesData = await expensesRes.json()
       const phonesData = await phonesRes.json()
+      const partiesData = await partiesRes.json()
 
       setSalesData(salesData.sales || [])
       setExpensesData(expensesData.expenses || [])
@@ -52,6 +55,7 @@ export default function ReportsPage() {
         inStock: phonesData.phones?.filter((p: any) => p.status === "In Stock").length || 0,
         sold: phonesData.phones?.filter((p: any) => p.status === "Sold").length || 0,
       })
+      setPartyBalances(partiesData.parties || [])
     } catch (error) {
       console.error("Failed to fetch reports:", error)
     } finally {
@@ -134,10 +138,11 @@ export default function ReportsPage() {
       </div>
 
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="parties">Party Balances</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
@@ -251,6 +256,54 @@ export default function ReportsPage() {
                           </TableRow>
                         )
                       }
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="parties" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Party Balances</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Party</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead className="text-right">Receivable</TableHead>
+                      <TableHead className="text-right">Payable</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">Loading...</TableCell>
+                      </TableRow>
+                    ) : partyBalances.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No parties found</TableCell>
+                      </TableRow>
+                    ) : (
+                      partyBalances.map((party) => (
+                        <TableRow key={party.id}>
+                          <TableCell className="font-medium">{party.name}</TableCell>
+                          <TableCell>{party.contact_person || "-"}</TableCell>
+                          <TableCell>{party.phone || "-"}</TableCell>
+                          <TableCell className="text-right text-green-600">
+                            {party.balance > 0 ? formatCurrency(party.balance) : "-"}
+                          </TableCell>
+                          <TableCell className="text-right text-red-600">
+                            {party.balance < 0 ? formatCurrency(Math.abs(party.balance)) : "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>

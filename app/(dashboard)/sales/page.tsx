@@ -39,7 +39,8 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer } from "lucide-react"
+import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer, User, Handshake, Smartphone, Zap } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
 import type { Phone } from "@/types/database"
 
@@ -47,14 +48,19 @@ interface SalePhone extends Phone {
   selection?: boolean
 }
 
+type SaleType = "customer" | "party" | null
+
 export default function SalesPage() {
   const [phones, setPhones] = useState<SalePhone[]>([])
   const [selectedPhone, setSelectedPhone] = useState<SalePhone | null>(null)
+  const [saleType, setSaleType] = useState<SaleType>(null)
   const [loading, setLoading] = useState(false)
   const [saleLoading, setSaleLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [invoiceData, setInvoiceData] = useState<any>(null)
   const [recentSales, setRecentSales] = useState<any[]>([])
+  const [parties, setParties] = useState<any[]>([])
+  const [categoryTab, setCategoryTab] = useState<"phones" | "accessories">("phones")
 
   const form = useForm<SaleFormValues>({
     resolver: zodResolver(saleSchema),
@@ -64,6 +70,8 @@ export default function SalesPage() {
       customer_phone: "",
       sale_price: 0,
       payment_method: "Cash",
+      party_id: "",
+      amount_paid: 0,
       notes: "",
     },
   })
@@ -71,6 +79,7 @@ export default function SalesPage() {
   useEffect(() => {
     fetchAvailablePhones()
     fetchRecentSales()
+    fetchParties()
   }, [])
 
   const fetchAvailablePhones = async () => {
@@ -87,6 +96,12 @@ export default function SalesPage() {
     const response = await fetch("/api/sales")
     const data = await response.json()
     setRecentSales((data.sales || []).slice(0, 10))
+  }
+
+  const fetchParties = async () => {
+    const response = await fetch("/api/parties")
+    const data = await response.json()
+    setParties(data.parties || [])
   }
 
   const handleSearch = async (search: string) => {
@@ -107,8 +122,31 @@ export default function SalesPage() {
 
   const handleSelectPhone = (phone: SalePhone) => {
     setSelectedPhone(phone)
-    form.setValue("phone_id", phone.id)
-    form.setValue("sale_price", phone.sale_price || 0)
+    setSaleType(null)
+    form.reset({
+      phone_id: phone.id,
+      customer_name: "",
+      customer_phone: "",
+      sale_price: phone.sale_price || 0,
+      payment_method: "Cash",
+      party_id: "",
+      amount_paid: 0,
+      notes: "",
+    })
+  }
+
+  const handleSelectSaleType = (type: SaleType) => {
+    setSaleType(type)
+    form.setValue("party_id", "")
+    form.setValue("customer_name", "")
+    form.setValue("customer_phone", "")
+    form.setValue("amount_paid", 0)
+  }
+
+  const handleCancel = () => {
+    setSelectedPhone(null)
+    setSaleType(null)
+    form.reset()
   }
 
   const onSubmit = async (values: SaleFormValues) => {
@@ -126,6 +164,7 @@ export default function SalesPage() {
         setShowSuccess(true)
         form.reset()
         setSelectedPhone(null)
+        setSaleType(null)
         fetchAvailablePhones()
         fetchRecentSales()
       }
@@ -145,8 +184,37 @@ export default function SalesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Sales / POS</h1>
-          <p className="text-sm text-muted-foreground">NovaLink fast phone sales</p>
+          <p className="text-sm text-muted-foreground">NovaLink fast sales</p>
         </div>
+      </div>
+
+      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setCategoryTab("phones")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
+            categoryTab === "phones"
+              ? "bg-background shadow text-foreground font-semibold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Smartphone className="h-4 w-4" />
+          Mobile Phones
+        </button>
+        <button
+          type="button"
+          onClick={() => setCategoryTab("accessories")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
+            categoryTab === "accessories"
+              ? "bg-background shadow text-foreground font-semibold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Zap className="h-4 w-4" />
+          Adapters & Cables
+        </button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -155,12 +223,12 @@ export default function SalesPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Search className="h-4 w-4" />
-                Search Phones
+                Search {categoryTab === "phones" ? "Phones" : "Adapters & Cables"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Input
-                placeholder="Search by IMEI, model, or brand..."
+                placeholder={categoryTab === "phones" ? "Search by IMEI, model, or brand..." : "Search by title, brand, or code..."}
                 onChange={(e) => handleSearch(e.target.value)}
               />
 
@@ -168,22 +236,22 @@ export default function SalesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>IMEI</TableHead>
-                      <TableHead>Device</TableHead>
-                      <TableHead>PTA</TableHead>
+                      <TableHead>IMEI / Code</TableHead>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Specs</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {phones.length === 0 ? (
+                    {phones.filter(p => categoryTab === "phones" ? (!p.item_type || p.item_type === "Phone") : (p.item_type === "Adapter" || p.item_type === "Cable")).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No phones available
+                          No {categoryTab === "phones" ? "phones" : "adapters or cables"} available
                         </TableCell>
                       </TableRow>
                     ) : (
-                      phones.map((phone) => (
+                      phones.filter(p => categoryTab === "phones" ? (!p.item_type || p.item_type === "Phone") : (p.item_type === "Adapter" || p.item_type === "Cable")).map((phone) => (
                         <TableRow
                           key={phone.id}
                           className={selectedPhone?.id === phone.id ? "bg-muted" : ""}
@@ -230,67 +298,159 @@ export default function SalesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="p-4 rounded-md bg-muted space-y-3">
-                      <div className="flex items-center gap-2">
-                        <PhoneIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">Selected Phone</span>
-                      </div>
-                      <p className="font-medium">{selectedPhone.brand} {selectedPhone.model}</p>
-                      <p className="text-xs text-muted-foreground font-mono">IMEI: {selectedPhone.imei}</p>
-                      <div className="flex gap-2">
-                        {selectedPhone.pta_status && (
-                          <Badge variant={selectedPhone.pta_status === "PTA" ? "default" : "secondary"}>
-                            {selectedPhone.pta_status}
-                          </Badge>
-                        )}
-                        <Badge variant="outline">{selectedPhone.condition}</Badge>
-                      </div>
-                      <div className="pt-2 border-t mt-2 space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Purchase Price:</span>
-                          <span>{formatCurrency(selectedPhone.purchase_price || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Sale Price:</span>
-                          <span className="font-medium">{formatCurrency(form.watch("sale_price") || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-green-600">
-                          <span className="text-muted-foreground">Profit:</span>
-                          <span className="font-medium">{formatCurrency(profit)}</span>
-                        </div>
-                      </div>
+                <div className="p-4 rounded-md bg-muted space-y-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <PhoneIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Selected Phone</span>
+                  </div>
+                  <p className="font-medium">{selectedPhone.brand} {selectedPhone.model}</p>
+                  <p className="text-xs text-muted-foreground font-mono">IMEI: {selectedPhone.imei}</p>
+                  <div className="flex gap-2">
+                    {selectedPhone.pta_status && (
+                      <Badge variant={selectedPhone.pta_status === "PTA" ? "default" : "secondary"}>
+                        {selectedPhone.pta_status}
+                      </Badge>
+                    )}
+                    <Badge variant="outline">{selectedPhone.condition}</Badge>
+                  </div>
+                  <div className="pt-2 border-t mt-2 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Purchase Price:</span>
+                      <span>{formatCurrency(selectedPhone.purchase_price || 0)}</span>
                     </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Sale Price:</span>
+                      <span className="font-medium">{formatCurrency(form.watch("sale_price") || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span className="text-muted-foreground">Profit:</span>
+                      <span className="font-medium">{formatCurrency(profit)}</span>
+                    </div>
+                  </div>
+                </div>
 
-                    <div className="space-y-3">
-                      <FormField
-                        control={form.control}
-                        name="customer_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Customer Name *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Customer name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                {!saleType && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-muted-foreground">Who are you selling to?</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectSaleType("customer")}
+                        className={cn(
+                          "flex flex-col items-center gap-2 p-6 rounded-lg border-2 transition-colors",
+                          "hover:border-primary hover:bg-muted cursor-pointer"
                         )}
-                      />
+                      >
+                        <User className="h-8 w-8 text-muted-foreground" />
+                        <span className="font-medium">Walk-in Customer</span>
+                        <span className="text-xs text-muted-foreground">Regular cash sale</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectSaleType("party")}
+                        className={cn(
+                          "flex flex-col items-center gap-2 p-6 rounded-lg border-2 transition-colors",
+                          "hover:border-primary hover:bg-muted cursor-pointer"
+                        )}
+                      >
+                        <Handshake className="h-8 w-8 text-muted-foreground" />
+                        <span className="font-medium">Party / Dealer</span>
+                        <span className="text-xs text-muted-foreground">Credit or partial sale</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                      <FormField
-                        control={form.control}
-                        name="customer_phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Customer Phone</FormLabel>
-                            <FormControl>
-                              <Input placeholder="03XX-XXXXXXX" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                {saleType && (
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      {saleType === "customer" && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              Customer Sale
+                            </p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSelectSaleType(null)}
+                            >
+                              Change
+                            </Button>
+                          </div>
+                          <FormField
+                            control={form.control}
+                            name="customer_name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Customer Name *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Customer name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="customer_phone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Customer Phone</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="03XX-XXXXXXX" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+
+                      {saleType === "party" && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium flex items-center gap-2">
+                              <Handshake className="h-4 w-4" />
+                              Party / Dealer Sale
+                            </p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSelectSaleType(null)}
+                            >
+                              Change
+                            </Button>
+                          </div>
+                          <FormField
+                            control={form.control}
+                            name="party_id"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Select Party *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Choose a party" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {parties.map((party) => (
+                                      <SelectItem key={party.id} value={party.id}>
+                                        {party.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
@@ -311,6 +471,56 @@ export default function SalesPage() {
                           )}
                         />
 
+                        {saleType === "party" && (
+                          <FormField
+                            control={form.control}
+                            name="amount_paid"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Amount Paid</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="0 = full credit"
+                                    {...field}
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+
+                        {saleType === "customer" && (
+                          <FormField
+                            control={form.control}
+                            name="payment_method"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Payment Method</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="Cash">Cash</SelectItem>
+                                    <SelectItem value="Card">Card</SelectItem>
+                                    <SelectItem value="Transfer">Transfer</SelectItem>
+                                    <SelectItem value="JazzCash">JazzCash</SelectItem>
+                                    <SelectItem value="EasyPaisa">EasyPaisa</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+
+                      {saleType === "party" && (
                         <FormField
                           control={form.control}
                           name="payment_method"
@@ -335,27 +545,32 @@ export default function SalesPage() {
                             </FormItem>
                           )}
                         />
-                      </div>
-                    </div>
+                      )}
 
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedPhone(null)
-                          form.reset()
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={saleLoading}>
-                        <DollarSign className="mr-2 h-4 w-4" />
-                        {saleLoading ? "Processing..." : "Complete Sale"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
+                      {saleType === "party" && form.watch("party_id") && form.watch("sale_price") > 0 && (
+                        <div className="p-3 rounded-md bg-muted text-sm">
+                          <span className="text-muted-foreground">Remaining: </span>
+                          <span className="font-medium">
+                            {formatCurrency(
+                              form.watch("sale_price") - (form.watch("amount_paid") || 0)
+                            )}
+                          </span>
+                          <span className="text-muted-foreground ml-2">(credit)</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={handleCancel}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={saleLoading}>
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          {saleLoading ? "Processing..." : "Complete Sale"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                )}
               </CardContent>
             </Card>
           )}

@@ -8,14 +8,21 @@ export async function GET(request: Request) {
   const status = searchParams.get("status")
   const brand = searchParams.get("brand")
   const condition = searchParams.get("condition")
+  const item_type = searchParams.get("item_type")
   const page = parseInt(searchParams.get("page") || "1")
-  const limit = parseInt(searchParams.get("limit") || "20")
+  const limit = parseInt(searchParams.get("limit") || "50")
 
   const supabase = await createClient()
 
   let query = supabase
     .from("phones")
-    .select("*", { count: "exact" })
+    .select(`
+      *,
+      party:reserved_party_id (
+        id,
+        name
+      )
+    `, { count: "exact" })
     .order("created_at", { ascending: false })
     .range((page - 1) * limit, page * limit - 1)
 
@@ -24,7 +31,11 @@ export async function GET(request: Request) {
   }
 
   if (status) {
-    query = query.eq("status", status)
+    if (status === "In Stock") {
+      query = query.in("status", ["In Stock", "Reserved"])
+    } else {
+      query = query.eq("status", status)
+    }
   }
 
   if (brand) {
@@ -33,6 +44,16 @@ export async function GET(request: Request) {
 
   if (condition) {
     query = query.eq("condition", condition)
+  }
+
+  if (item_type) {
+    if (item_type === "accessories") {
+      query = query.in("item_type", ["Adapter", "Cable"])
+    } else if (item_type === "Phone") {
+      query = query.or("item_type.eq.Phone,item_type.is.null")
+    } else {
+      query = query.eq("item_type", item_type)
+    }
   }
 
   const { data, count, error } = await query
@@ -63,9 +84,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const itemData = { ...result.data }
+    if (!itemData.imei) {
+      itemData.imei = "ACC-" + Math.random().toString(36).substring(2, 9).toUpperCase()
+    }
+
     const { data, error } = await supabase
       .from("phones")
-      .insert(result.data)
+      .insert(itemData)
       .select()
       .single()
 

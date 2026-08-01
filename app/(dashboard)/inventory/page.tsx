@@ -13,9 +13,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Pencil, Trash2, Smartphone, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn, formatCurrency } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -43,7 +44,6 @@ import {
 } from "@/components/ui/select"
 import { AddPhoneDialog } from "@/modules/inventory/components/add-phone-dialog"
 import { EditPhoneDialog } from "@/modules/inventory/components/edit-phone-dialog"
-import { formatCurrency } from "@/lib/utils"
 import type { Phone } from "@/types/database"
 import {
   Sheet,
@@ -63,6 +63,7 @@ export default function InventoryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [showFilters, setShowFilters] = useState(false)
   const [statusFilter, setStatusFilter] = useState("In Stock")
+  const [categoryTab, setCategoryTab] = useState<"phones" | "accessories">("phones")
 
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -187,7 +188,15 @@ export default function InventoryPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.getValue("status") as string
+        const phone = row.original as Phone & { party?: { name: string } | null }
+        const status = phone.status
+        if (status === "Reserved") {
+          return (
+            <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+              Phones Out {phone.party?.name ? `(${phone.party.name})` : ""}
+            </Badge>
+          )
+        }
         return (
           <Badge
             variant={
@@ -233,8 +242,18 @@ export default function InventoryPage() {
     },
   ]
 
+  const displayedItems = useMemo(() => {
+    return phones.filter((item) => {
+      const isAccessory = item.item_type === "Adapter" || item.item_type === "Cable"
+      if (categoryTab === "phones") {
+        return !isAccessory
+      }
+      return isAccessory
+    })
+  }, [phones, categoryTab])
+
   const table = useReactTable({
-    data: phones,
+    data: displayedItems,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -256,10 +275,39 @@ export default function InventoryPage() {
         <div>
           <h1 className="text-2xl font-semibold">Inventory</h1>
           <p className="text-sm text-muted-foreground">
-            {total} phones in stock
+            {total} items in stock ({phones.filter(p => !p.item_type || p.item_type === "Phone").length} Phones, {phones.filter(p => p.item_type === "Adapter" || p.item_type === "Cable").length} Accessories) • Merged Value: {formatCurrency(phones.reduce((sum, p) => sum + (p.purchase_price || 0), 0))}
           </p>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)}>+ Add Phone</Button>
+        <Button onClick={() => setAddDialogOpen(true)}>+ Add Inventory Item</Button>
+      </div>
+
+      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setCategoryTab("phones")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
+            categoryTab === "phones"
+              ? "bg-background shadow text-foreground font-semibold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Smartphone className="h-4 w-4" />
+          Mobile Phones ({phones.filter(p => !p.item_type || p.item_type === "Phone").length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setCategoryTab("accessories")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
+            categoryTab === "accessories"
+              ? "bg-background shadow text-foreground font-semibold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Zap className="h-4 w-4" />
+          Adapters & Cables ({phones.filter(p => p.item_type === "Adapter" || p.item_type === "Cable").length})
+        </button>
       </div>
 
       <div className="flex items-center gap-4">

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { phone_id, sale_price, payment_method, customer_name, customer_phone, notes } = result.data
+    const { phone_id, sale_price, payment_method, customer_name, customer_phone, notes, party_id, amount_paid } = result.data
 
     const { data: phone } = await supabase
       .from("phones")
@@ -54,6 +54,19 @@ export async function POST(request: Request) {
 
     const invoice_number = generateInvoiceNumber()
 
+    // If party_id provided, fetch party name to use as customer_name
+    let finalCustomerName = customer_name
+    if (party_id) {
+      const { data: party } = await supabase
+        .from("parties")
+        .select("name")
+        .eq("id", party_id)
+        .single()
+      if (party) {
+        finalCustomerName = party.name
+      }
+    }
+
     const { data: sale, error: saleError } = await supabase
       .from("sales")
       .insert({
@@ -61,7 +74,7 @@ export async function POST(request: Request) {
         sale_price,
         profit,
         payment_method: payment_method || "Cash",
-        customer_name,
+        customer_name: finalCustomerName,
         customer_phone,
         sold_by: user.email,
         invoice_number,
@@ -78,6 +91,27 @@ export async function POST(request: Request) {
       .from("phones")
       .update({ status: "Sold" })
       .eq("id", phone_id)
+
+    // Dual-write: if party_id provided, create credit sale entry for unpaid amount
+    if (party_id) {
+      const paid = amount_paid || 0
+      const remaining = sale_price - paid
+      if (remaining > 0) {
+        await supabase
+          .from("party_transactions")
+          .insert({
+            party_id,
+            type: "credit_sale",
+            amount: remaining,
+            reference_id: sale.id,
+            reference_type: "sale",
+            sale_id: sale.id,
+            payment_method: payment_method || null,
+            description: `Credit sale: ${invoice_number}`,
+            created_by: user.email,
+          })
+      }
+    }
 
     return NextResponse.json({ sale }, { status: 201 })
   } catch (error) {

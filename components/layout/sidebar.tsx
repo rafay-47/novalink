@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   ShoppingBag,
   Users,
+  Handshake,
   Receipt,
   BarChart3,
   Settings,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Send,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,9 +31,11 @@ import { useState } from "react"
 const sidebarItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inventory", label: "Inventory", icon: Package },
+  { href: "/consignments", label: "Phones Out", icon: Send },
   { href: "/sales", label: "Sales", icon: ShoppingCart },
   { href: "/purchases", label: "Purchases", icon: ShoppingBag },
   { href: "/customers", label: "Customers", icon: Users },
+  { href: "/parties", label: "Parties", icon: Handshake },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -95,25 +99,22 @@ export function Sidebar({ user }: SidebarProps) {
         )}
       >
         <div className="flex items-center justify-between border-b px-3 py-4">
-          {!collapsed && mobileOpen && (
+          <span className="text-lg font-semibold">NovaLink</span>
+          {mobileOpen ? (
             <Button
               variant="ghost"
               size="icon"
               onClick={closeMobileSidebar}
-              className="ml-auto"
+              className="lg:hidden"
             >
               <X className="h-4 w-4" />
             </Button>
-          )}
-          {!collapsed && !mobileOpen && (
-            <span className="text-lg font-semibold">NovaLink</span>
-          )}
-          {!mobileOpen && (
+          ) : (
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleSidebar}
-              className="h-8 w-8"
+              className="h-8 w-8 hidden lg:flex"
             >
               {collapsed ? (
                 <ChevronRight className="h-4 w-4" />
