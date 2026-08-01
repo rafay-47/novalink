@@ -38,6 +38,7 @@ export async function GET(
       sales:sale_id (
         phone_id,
         phones (
+          item_type,
           brand,
           model,
           imei
@@ -46,6 +47,7 @@ export async function GET(
       purchases:purchase_id (
         phone_id,
         phones (
+          item_type,
           brand,
           model,
           imei

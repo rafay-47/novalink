@@ -23,10 +23,11 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("month")
+  const [salesCategoryFilter, setSalesCategoryFilter] = useState<"all" | "phones" | "accessories">("all")
   const [loading, setLoading] = useState(true)
   const [salesData, setSalesData] = useState<any[]>([])
   const [expensesData, setExpensesData] = useState<any[]>([])
-  const [inventoryStats, setInventoryStats] = useState<any>(null)
+  const [phonesList, setPhonesList] = useState<any[]>([])
   const [partyBalances, setPartyBalances] = useState<any[]>([])
 
   useEffect(() => {
@@ -50,11 +51,7 @@ export default function ReportsPage() {
 
       setSalesData(salesData.sales || [])
       setExpensesData(expensesData.expenses || [])
-      setInventoryStats({
-        total: phonesData.total || 0,
-        inStock: phonesData.phones?.filter((p: any) => p.status === "In Stock").length || 0,
-        sold: phonesData.phones?.filter((p: any) => p.status === "Sold").length || 0,
-      })
+      setPhonesList(phonesData.phones || [])
       setPartyBalances(partiesData.parties || [])
     } catch (error) {
       console.error("Failed to fetch reports:", error)
@@ -63,14 +60,24 @@ export default function ReportsPage() {
     }
   }
 
+  const filteredSalesData = salesData.filter((sale) => {
+    const isAccessory = sale.phones?.item_type === "Adapter" || sale.phones?.item_type === "Cable"
+    if (salesCategoryFilter === "phones") return !isAccessory
+    if (salesCategoryFilter === "accessories") return isAccessory
+    return true
+  })
+
   const totalSales = salesData.reduce((sum, s) => sum + (s.sale_price || 0), 0)
   const totalProfit = salesData.reduce((sum, s) => sum + (s.profit || 0), 0)
   const totalExpenses = expensesData.reduce((sum, e) => sum + e.amount, 0)
   const netProfit = totalProfit - totalExpenses
 
+  const phoneItems = phonesList.filter((p) => !p.item_type || p.item_type === "Phone")
+  const accessoryItems = phonesList.filter((p) => p.item_type === "Adapter" || p.item_type === "Cable")
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-xl font-semibold">Reports</h1>
           <p className="text-sm text-muted-foreground">Business analytics and insights</p>
@@ -140,15 +147,44 @@ export default function ReportsPage() {
       <Tabs defaultValue="sales" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory Breakdown</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="parties">Party Balances</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="text-base">Sales Transactions</CardTitle>
+              <div className="flex gap-1 p-0.5 bg-muted rounded-md w-fit text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSalesCategoryFilter("all")}
+                  className={`px-3 py-1 font-medium rounded transition-all cursor-pointer ${
+                    salesCategoryFilter === "all" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
+                  }`}
+                >
+                  All Items ({salesData.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSalesCategoryFilter("phones")}
+                  className={`px-3 py-1 font-medium rounded transition-all cursor-pointer ${
+                    salesCategoryFilter === "phones" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
+                  }`}
+                >
+                  Phones ({salesData.filter(s => !s.phones?.item_type || s.phones?.item_type === "Phone").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSalesCategoryFilter("accessories")}
+                  className={`px-3 py-1 font-medium rounded transition-all cursor-pointer ${
+                    salesCategoryFilter === "accessories" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
+                  }`}
+                >
+                  Adapters & Cables ({salesData.filter(s => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable").length})
+                </button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="border rounded-md overflow-x-auto">
@@ -156,7 +192,7 @@ export default function ReportsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Device</TableHead>
+                      <TableHead>Item / Device</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Profit</TableHead>
@@ -170,18 +206,21 @@ export default function ReportsPage() {
                           Loading...
                         </TableCell>
                       </TableRow>
-                    ) : salesData.length === 0 ? (
+                    ) : filteredSalesData.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          No sales data available
+                          No sales data available for this category filter
                         </TableCell>
                       </TableRow>
                     ) : (
-                      salesData.map((sale) => (
+                      filteredSalesData.map((sale) => (
                         <TableRow key={sale.id}>
                           <TableCell className="text-sm">{formatDate(sale.created_at)}</TableCell>
                           <TableCell className="font-medium">
                             {sale.phones ? `${sale.phones.brand} ${sale.phones.model}` : "N/A"}
+                            {sale.phones?.item_type && sale.phones.item_type !== "Phone" && (
+                              <span className="ml-2 text-xs text-muted-foreground">({sale.phones.item_type})</span>
+                            )}
                           </TableCell>
                           <TableCell>{sale.customer_name || "Walk-in"}</TableCell>
                           <TableCell className="font-medium">{formatCurrency(sale.sale_price)}</TableCell>
@@ -200,31 +239,64 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Phones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold">{inventoryStats?.total || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">In Stock</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold text-green-600">{inventoryStats?.inStock || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Sold</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold text-blue-600">{inventoryStats?.sold || 0}</div>
-              </CardContent>
-            </Card>
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground">Mobile Phones Inventory</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total Mobile Phones</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold">{phoneItems.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Phones In Stock</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-green-600">{phoneItems.filter(p => p.status === "In Stock").length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Phones Sold</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-blue-600">{phoneItems.filter(p => p.status === "Sold").length}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">Adapters & Cables Inventory</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total Adapters & Cables</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold">{accessoryItems.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Accessories In Stock</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-green-600">{accessoryItems.filter(p => p.status === "In Stock").length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Accessories Sold</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-blue-600">{accessoryItems.filter(p => p.status === "Sold").length}</div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 

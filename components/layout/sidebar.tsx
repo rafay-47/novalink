@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   Send,
+  Zap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +32,7 @@ import { useState } from "react"
 const sidebarItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inventory", label: "Inventory", icon: Package },
+  { href: "/accessories", label: "Adapters & Cables", icon: Zap },
   { href: "/consignments", label: "Phones Out", icon: Send },
   { href: "/sales", label: "Sales", icon: ShoppingCart },
   { href: "/purchases", label: "Purchases", icon: ShoppingBag },

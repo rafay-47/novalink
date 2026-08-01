@@ -38,6 +38,7 @@ interface TransactionWithPhone extends PartyTransaction {
   sales?: {
     phone_id: string | null
     phones?: {
+      item_type?: string | null
       brand: string
       model: string
       imei: string
@@ -51,6 +52,7 @@ interface TransactionWithPhone extends PartyTransaction {
   purchases?: {
     phone_id: string | null
     phones?: {
+      item_type?: string | null
       brand: string
       model: string
       imei: string
@@ -66,6 +68,7 @@ interface TransactionWithPhone extends PartyTransaction {
 interface SoldPhone {
   transaction: TransactionWithPhone
   phone: {
+    item_type?: string | null
     brand: string
     model: string
     imei: string
@@ -92,6 +95,8 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
   const [typeFilter, setTypeFilter] = useState<string>("")
   const [deleting, setDeleting] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"transactions" | "sold" | "purchased" | "info">("transactions")
+  const [soldCategoryTab, setSoldCategoryTab] = useState<"phones" | "accessories">("phones")
+  const [purchasedCategoryTab, setPurchasedCategoryTab] = useState<"phones" | "accessories">("phones")
 
   useEffect(() => {
     fetchParty()
@@ -441,15 +446,43 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
       {activeTab === "sold" && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Devices Sold to {party.name}
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                Devices Sold to {party.name}
+              </CardTitle>
+              <div className="flex gap-1 p-0.5 bg-muted rounded-md w-fit text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSoldCategoryTab("phones")}
+                  className={cn(
+                    "px-3 py-1 font-medium rounded transition-all cursor-pointer",
+                    soldCategoryTab === "phones"
+                      ? "bg-background shadow text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Phones ({soldPhones.filter(sp => !sp.phone.item_type || sp.phone.item_type === "Phone").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSoldCategoryTab("accessories")}
+                  className={cn(
+                    "px-3 py-1 font-medium rounded transition-all cursor-pointer",
+                    soldCategoryTab === "accessories"
+                      ? "bg-background shadow text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Adapters & Cables ({soldPhones.filter(sp => sp.phone.item_type === "Adapter" || sp.phone.item_type === "Cable").length})
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {soldPhones.length === 0 ? (
+            {soldPhones.filter(sp => soldCategoryTab === "phones" ? (!sp.phone.item_type || sp.phone.item_type === "Phone") : (sp.phone.item_type === "Adapter" || sp.phone.item_type === "Cable")).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                No devices sold to this party yet
+                No {soldCategoryTab === "phones" ? "phones" : "adapters or cables"} sold to this party yet
               </div>
             ) : (
               <div className="border rounded-md overflow-x-auto">
@@ -457,14 +490,14 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Device</TableHead>
-                      <TableHead>IMEI / Code</TableHead>
-                      <TableHead>Specs</TableHead>
+                      <TableHead>{soldCategoryTab === "phones" ? "Device" : "Item Title"}</TableHead>
+                      <TableHead>{soldCategoryTab === "phones" ? "IMEI" : "Item Code / Serial"}</TableHead>
+                      <TableHead>{soldCategoryTab === "phones" ? "Specs" : "Category"}</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {soldPhones.map((sp) => (
+                    {soldPhones.filter(sp => soldCategoryTab === "phones" ? (!sp.phone.item_type || sp.phone.item_type === "Phone") : (sp.phone.item_type === "Adapter" || sp.phone.item_type === "Cable")).map((sp) => (
                       <TableRow key={sp.transaction.id}>
                         <TableCell className="text-sm">
                           {formatDateTime(sp.date)}
@@ -476,21 +509,27 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
                           {sp.phone.imei}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1 flex-wrap">
-                            {sp.phone.pta_status && (
-                              <Badge variant={sp.phone.pta_status === "PTA" ? "default" : "secondary"} className="text-xs">
-                                {sp.phone.pta_status}
-                              </Badge>
-                            )}
-                            {sp.phone.condition && (
-                              <Badge variant="outline" className="text-xs">
-                                {sp.phone.condition}
-                              </Badge>
-                            )}
-                            {sp.phone.storage && (
-                              <span className="text-xs text-muted-foreground">{sp.phone.storage}</span>
-                            )}
-                          </div>
+                          {soldCategoryTab === "phones" ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {sp.phone.pta_status && (
+                                <Badge variant={sp.phone.pta_status === "PTA" ? "default" : "secondary"} className="text-xs">
+                                  {sp.phone.pta_status}
+                                </Badge>
+                              )}
+                              {sp.phone.condition && (
+                                <Badge variant="outline" className="text-xs">
+                                  {sp.phone.condition}
+                                </Badge>
+                              )}
+                              {sp.phone.storage && (
+                                <span className="text-xs text-muted-foreground">{sp.phone.storage}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant={sp.phone.item_type === "Adapter" ? "default" : "secondary"} className="text-xs">
+                              {sp.phone.item_type || "Adapter"}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(sp.amount)}
@@ -508,15 +547,43 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
       {activeTab === "purchased" && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ShoppingBag className="h-4 w-4" />
-              Devices Purchased from {party.name}
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShoppingBag className="h-4 w-4" />
+                Devices Purchased from {party.name}
+              </CardTitle>
+              <div className="flex gap-1 p-0.5 bg-muted rounded-md w-fit text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPurchasedCategoryTab("phones")}
+                  className={cn(
+                    "px-3 py-1 font-medium rounded transition-all cursor-pointer",
+                    purchasedCategoryTab === "phones"
+                      ? "bg-background shadow text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Phones ({purchasedPhones.filter(pp => !pp.phone.item_type || pp.phone.item_type === "Phone").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPurchasedCategoryTab("accessories")}
+                  className={cn(
+                    "px-3 py-1 font-medium rounded transition-all cursor-pointer",
+                    purchasedCategoryTab === "accessories"
+                      ? "bg-background shadow text-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Adapters & Cables ({purchasedPhones.filter(pp => pp.phone.item_type === "Adapter" || pp.phone.item_type === "Cable").length})
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {purchasedPhones.length === 0 ? (
+            {purchasedPhones.filter(pp => purchasedCategoryTab === "phones" ? (!pp.phone.item_type || pp.phone.item_type === "Phone") : (pp.phone.item_type === "Adapter" || pp.phone.item_type === "Cable")).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                No devices purchased from this party yet
+                No {purchasedCategoryTab === "phones" ? "phones" : "adapters or cables"} purchased from this party yet
               </div>
             ) : (
               <div className="border rounded-md overflow-x-auto">
@@ -524,14 +591,14 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Device</TableHead>
-                      <TableHead>IMEI / Code</TableHead>
-                      <TableHead>Specs</TableHead>
+                      <TableHead>{purchasedCategoryTab === "phones" ? "Device" : "Item Title"}</TableHead>
+                      <TableHead>{purchasedCategoryTab === "phones" ? "IMEI" : "Item Code / Serial"}</TableHead>
+                      <TableHead>{purchasedCategoryTab === "phones" ? "Specs" : "Category"}</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {purchasedPhones.map((pp) => (
+                    {purchasedPhones.filter(pp => purchasedCategoryTab === "phones" ? (!pp.phone.item_type || pp.phone.item_type === "Phone") : (pp.phone.item_type === "Adapter" || pp.phone.item_type === "Cable")).map((pp) => (
                       <TableRow key={pp.transaction.id}>
                         <TableCell className="text-sm">
                           {formatDateTime(pp.date)}
@@ -543,21 +610,27 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
                           {pp.phone.imei}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1 flex-wrap">
-                            {pp.phone.pta_status && (
-                              <Badge variant={pp.phone.pta_status === "PTA" ? "default" : "secondary"} className="text-xs">
-                                {pp.phone.pta_status}
-                              </Badge>
-                            )}
-                            {pp.phone.condition && (
-                              <Badge variant="outline" className="text-xs">
-                                {pp.phone.condition}
-                              </Badge>
-                            )}
-                            {pp.phone.storage && (
-                              <span className="text-xs text-muted-foreground">{pp.phone.storage}</span>
-                            )}
-                          </div>
+                          {purchasedCategoryTab === "phones" ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {pp.phone.pta_status && (
+                                <Badge variant={pp.phone.pta_status === "PTA" ? "default" : "secondary"} className="text-xs">
+                                  {pp.phone.pta_status}
+                                </Badge>
+                              )}
+                              {pp.phone.condition && (
+                                <Badge variant="outline" className="text-xs">
+                                  {pp.phone.condition}
+                                </Badge>
+                              )}
+                              {pp.phone.storage && (
+                                <span className="text-xs text-muted-foreground">{pp.phone.storage}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant={pp.phone.item_type === "Adapter" ? "default" : "secondary"} className="text-xs">
+                              {pp.phone.item_type || "Adapter"}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(pp.amount)}

@@ -42,15 +42,17 @@ export async function POST(request: Request) {
       )
     }
 
-    const { phone_id, sale_price, payment_method, customer_name, customer_phone, notes, party_id, amount_paid } = result.data
+    const { phone_id, sale_price, payment_method, customer_name, customer_phone, notes, party_id, amount_paid, quantity } = body
 
     const { data: phone } = await supabase
       .from("phones")
-      .select("purchase_price")
+      .select("purchase_price, item_type")
       .eq("id", phone_id)
       .single()
 
-    const profit = phone?.purchase_price ? sale_price - phone.purchase_price : null
+    const itemQty = quantity && Number(quantity) > 0 ? Number(quantity) : 1
+    const totalUnitCost = (phone?.purchase_price || 0) * itemQty
+    const profit = phone?.purchase_price ? sale_price - totalUnitCost : null
 
     const invoice_number = generateInvoiceNumber()
 
@@ -78,19 +80,22 @@ export async function POST(request: Request) {
         customer_phone,
         sold_by: user.email,
         invoice_number,
-        notes,
+        notes: itemQty > 1 ? `Qty: ${itemQty}${notes ? ` | ${notes}` : ""}` : notes,
       })
-      .select("*, phones(brand, model, imei)")
+      .select("*, phones(brand, model, imei, item_type)")
       .single()
 
     if (saleError) {
       return NextResponse.json({ error: saleError.message }, { status: 500 })
     }
 
-    await supabase
-      .from("phones")
-      .update({ status: "Sold" })
-      .eq("id", phone_id)
+    // Only update status to "Sold" if the item is a Mobile Phone (Adapters & Cables are sold in quantity and stay in catalog)
+    if (!phone?.item_type || phone.item_type === "Phone") {
+      await supabase
+        .from("phones")
+        .update({ status: "Sold" })
+        .eq("id", phone_id)
+    }
 
     // Dual-write: if party_id provided, create credit sale entry for unpaid amount
     if (party_id) {

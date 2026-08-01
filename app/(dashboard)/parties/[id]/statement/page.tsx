@@ -202,7 +202,7 @@ export default function PartyStatementPage({ params }: { params: Promise<{ id: s
                       <div>{t.description || "-"}</div>
                       {phone && (
                         <div className="text-xs text-gray-500">
-                          {phone.brand} {phone.model} - {phone.imei}
+                          {phone.brand} {phone.model} • {phone.item_type && phone.item_type !== "Phone" ? `${phone.item_type} (${phone.imei})` : `IMEI: ${phone.imei}`}
                         </div>
                       )}
                     </td>

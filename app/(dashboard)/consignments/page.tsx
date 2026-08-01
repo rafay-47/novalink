@@ -231,35 +231,6 @@ export default function ConsignmentsPage() {
         </Button>
       </div>
 
-      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setCategoryTab("phones")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "phones"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Smartphone className="h-4 w-4" />
-          Phones Out ({consignments.filter(c => !c.item_type || c.item_type === "Phone").length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryTab("accessories")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "accessories"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Zap className="h-4 w-4" />
-          Adapters & Cables Out ({consignments.filter(c => c.item_type === "Adapter" || c.item_type === "Cable").length})
-        </button>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
@@ -295,7 +266,7 @@ export default function ConsignmentsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Send className="h-4 w-4" />
-              {categoryTab === "phones" ? "Phones Currently Out" : "Adapters & Cables Currently Out"}
+              Phones Currently Out
             </CardTitle>
             <div className="w-full sm:w-64">
               <div className="relative">
@@ -331,14 +302,14 @@ export default function ConsignmentsPage() {
                       Loading consignments...
                     </TableCell>
                   </TableRow>
-                ) : filteredConsignments.filter(c => categoryTab === "phones" ? (!c.item_type || c.item_type === "Phone") : (c.item_type === "Adapter" || c.item_type === "Cable")).length === 0 ? (
+                ) : filteredConsignments.filter(c => !c.item_type || c.item_type === "Phone").length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No {categoryTab === "phones" ? "phones" : "adapters or cables"} currently out
+                      No phones currently out
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredConsignments.filter(c => categoryTab === "phones" ? (!c.item_type || c.item_type === "Phone") : (c.item_type === "Adapter" || c.item_type === "Cable")).map((consignment) => (
+                  filteredConsignments.filter(c => !c.item_type || c.item_type === "Phone").map((consignment) => (
                     <TableRow key={consignment.id}>
                       <TableCell className="text-sm">
                         {consignment.reserved_at ? formatDateTime(consignment.reserved_at) : "N/A"}
@@ -353,7 +324,7 @@ export default function ConsignmentsPage() {
                       <TableCell>
                         <div className="font-medium">{consignment.brand} {consignment.model}</div>
                         <div className="text-xs text-muted-foreground flex gap-1 items-center mt-0.5">
-                          <span>{consignment.color}</span>
+                          <span>{consignment.color || "-"}</span>
                           {consignment.storage && <span>• {consignment.storage}</span>}
                           {consignment.pta_status && (
                             <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">

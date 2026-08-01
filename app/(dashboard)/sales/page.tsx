@@ -183,38 +183,9 @@ export default function SalesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Sales / POS</h1>
-          <p className="text-sm text-muted-foreground">NovaLink fast sales</p>
+          <h1 className="text-xl font-semibold">Phone Sales / POS</h1>
+          <p className="text-sm text-muted-foreground">NovaLink phone sales point of sale</p>
         </div>
-      </div>
-
-      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setCategoryTab("phones")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "phones"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Smartphone className="h-4 w-4" />
-          Mobile Phones
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryTab("accessories")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "accessories"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Zap className="h-4 w-4" />
-          Adapters & Cables
-        </button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -223,12 +194,12 @@ export default function SalesPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Search className="h-4 w-4" />
-                Search {categoryTab === "phones" ? "Phones" : "Adapters & Cables"}
+                Search Available Phones
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Input
-                placeholder={categoryTab === "phones" ? "Search by IMEI, model, or brand..." : "Search by title, brand, or code..."}
+                placeholder="Search by IMEI, model, or brand..."
                 onChange={(e) => handleSearch(e.target.value)}
               />
 
@@ -236,22 +207,22 @@ export default function SalesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>IMEI / Code</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Specs</TableHead>
+                      <TableHead>IMEI</TableHead>
+                      <TableHead>Device</TableHead>
+                      <TableHead>PTA</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {phones.filter(p => categoryTab === "phones" ? (!p.item_type || p.item_type === "Phone") : (p.item_type === "Adapter" || p.item_type === "Cable")).length === 0 ? (
+                    {phones.filter(p => !p.item_type || p.item_type === "Phone").length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No {categoryTab === "phones" ? "phones" : "adapters or cables"} available
+                          No phones available for sale
                         </TableCell>
                       </TableRow>
                     ) : (
-                      phones.filter(p => categoryTab === "phones" ? (!p.item_type || p.item_type === "Phone") : (p.item_type === "Adapter" || p.item_type === "Cable")).map((phone) => (
+                      phones.filter(p => !p.item_type || p.item_type === "Phone").map((phone) => (
                         <TableRow
                           key={phone.id}
                           className={selectedPhone?.id === phone.id ? "bg-muted" : ""}
@@ -259,7 +230,9 @@ export default function SalesPage() {
                           <TableCell className="font-mono text-xs">{phone.imei}</TableCell>
                           <TableCell>
                             <div className="font-medium">{phone.brand} {phone.model}</div>
-                            <div className="text-xs text-muted-foreground">{phone.color} | {phone.storage}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {phone.color || "-"} | {phone.storage || "-"}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {phone.pta_status && (
@@ -640,9 +613,14 @@ export default function SalesPage() {
                 <span className="font-mono font-medium">{invoiceData?.invoice_number}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Device</span>
+                <span className="text-sm text-muted-foreground">
+                  {invoiceData?.phones?.item_type && invoiceData?.phones?.item_type !== "Phone" ? "Item" : "Device"}
+                </span>
                 <span className="font-medium">
                   {invoiceData?.phones?.brand} {invoiceData?.phones?.model}
+                  {invoiceData?.phones?.item_type && invoiceData?.phones?.item_type !== "Phone" && (
+                    <span className="ml-1.5 text-xs text-muted-foreground">({invoiceData?.phones?.item_type})</span>
+                  )}
                 </span>
               </div>
               <div className="flex justify-between items-center">

@@ -145,6 +145,7 @@ export default function InventoryPage() {
     {
       accessorKey: "storage",
       header: "Storage",
+      cell: ({ row }) => row.getValue("storage") || "-",
     },
     {
       accessorKey: "condition",
@@ -178,6 +179,11 @@ export default function InventoryPage() {
         const variant = health >= 90 ? "default" : health >= 80 ? "secondary" : "destructive"
         return <Badge variant={variant}>{battery}</Badge>
       },
+    },
+    {
+      accessorKey: "purchase_price",
+      header: "Cost Price",
+      cell: ({ row }) => formatCurrency(row.getValue("purchase_price") || 0),
     },
     {
       accessorKey: "sale_price",
@@ -243,14 +249,8 @@ export default function InventoryPage() {
   ]
 
   const displayedItems = useMemo(() => {
-    return phones.filter((item) => {
-      const isAccessory = item.item_type === "Adapter" || item.item_type === "Cable"
-      if (categoryTab === "phones") {
-        return !isAccessory
-      }
-      return isAccessory
-    })
-  }, [phones, categoryTab])
+    return phones.filter((item) => !item.item_type || item.item_type === "Phone")
+  }, [phones])
 
   const table = useReactTable({
     data: displayedItems,
@@ -273,41 +273,12 @@ export default function InventoryPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Inventory</h1>
+          <h1 className="text-2xl font-semibold">Phone Inventory</h1>
           <p className="text-sm text-muted-foreground">
-            {total} items in stock ({phones.filter(p => !p.item_type || p.item_type === "Phone").length} Phones, {phones.filter(p => p.item_type === "Adapter" || p.item_type === "Cable").length} Accessories) • Merged Value: {formatCurrency(phones.reduce((sum, p) => sum + (p.purchase_price || 0), 0))}
+            {displayedItems.length} phones in stock • Total Value: {formatCurrency(displayedItems.reduce((sum, p) => sum + (p.purchase_price || 0), 0))}
           </p>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)}>+ Add Inventory Item</Button>
-      </div>
-
-      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setCategoryTab("phones")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "phones"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Smartphone className="h-4 w-4" />
-          Mobile Phones ({phones.filter(p => !p.item_type || p.item_type === "Phone").length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryTab("accessories")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "accessories"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Zap className="h-4 w-4" />
-          Adapters & Cables ({phones.filter(p => p.item_type === "Adapter" || p.item_type === "Cable").length})
-        </button>
+        <Button onClick={() => setAddDialogOpen(true)}>+ Add Phone</Button>
       </div>
 
       <div className="flex items-center gap-4">

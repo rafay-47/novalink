@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Plus, Package, User, Handshake, Smartphone, Zap } from "lucide-react"
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils"
 import type { Purchase } from "@/types/database"
@@ -139,40 +140,11 @@ export default function PurchasesPage() {
         </Button>
       </div>
 
-      <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit max-w-full overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setCategoryTab("phones")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "phones"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Smartphone className="h-4 w-4" />
-          Mobile Phones
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryTab("accessories")}
-          className={cn(
-            "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2 cursor-pointer",
-            categoryTab === "accessories"
-              ? "bg-background shadow text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Zap className="h-4 w-4" />
-          Adapters & Cables
-        </button>
-      </div>
-
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Purchase History ({categoryTab === "phones" ? "Mobile Phones" : "Adapters & Cables"})
+            Purchase History (Mobile Phones)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -181,8 +153,8 @@ export default function PurchasesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>IMEI / Code</TableHead>
-                  <TableHead>Item Details</TableHead>
+                  <TableHead>IMEI</TableHead>
+                  <TableHead>Phone Details</TableHead>
                   <TableHead>Seller</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Amount</TableHead>
@@ -196,14 +168,14 @@ export default function PurchasesPage() {
                       Loading...
                     </TableCell>
                   </TableRow>
-                ) : purchases.filter(p => categoryTab === "phones" ? (!p.phones?.item_type || p.phones?.item_type === "Phone") : (p.phones?.item_type === "Adapter" || p.phones?.item_type === "Cable")).length === 0 ? (
+                ) : purchases.filter(p => !p.phones?.item_type || p.phones?.item_type === "Phone").length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No {categoryTab === "phones" ? "phone" : "adapter or cable"} purchases found
+                      No phone purchases found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  purchases.filter(p => categoryTab === "phones" ? (!p.phones?.item_type || p.phones?.item_type === "Phone") : (p.phones?.item_type === "Adapter" || p.phones?.item_type === "Cable")).map((purchase) => (
+                  purchases.filter(p => !p.phones?.item_type || p.phones?.item_type === "Phone").map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell className="text-sm">{formatDateTime(purchase.created_at)}</TableCell>
                       <TableCell className="font-mono text-xs">
