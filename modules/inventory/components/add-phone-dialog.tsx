@@ -59,8 +59,6 @@ export function AddPhoneDialog({ open, onOpenChange, onSuccess }: AddPhoneDialog
     },
   })
 
-  const currentItemType = form.watch("item_type") || "Phone"
-
   const onSubmit = async (values: PhoneFormValues) => {
     setLoading(true)
     try {
@@ -86,33 +84,10 @@ export function AddPhoneDialog({ open, onOpenChange, onSuccess }: AddPhoneDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Inventory Item</DialogTitle>
+          <DialogTitle>Add Phone</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-            <FormField
-              control={form.control}
-              name="item_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Item Category *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || "Phone"}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Phone">Mobile Phone</SelectItem>
-                      <SelectItem value="Adapter">Adapter / Charger</SelectItem>
-                      <SelectItem value="Cable">Cable / Wire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
@@ -121,7 +96,7 @@ export function AddPhoneDialog({ open, onOpenChange, onSuccess }: AddPhoneDialog
                   <FormItem>
                     <FormLabel>Brand *</FormLabel>
                     <FormControl>
-                      <Input placeholder={currentItemType === "Phone" ? "e.g., Apple, Samsung" : "e.g., Anker, Belkin"} {...field} />
+                      <Input placeholder="e.g., Apple, Samsung" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -132,9 +107,9 @@ export function AddPhoneDialog({ open, onOpenChange, onSuccess }: AddPhoneDialog
                 name="model"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Model / Title *</FormLabel>
+                    <FormLabel>Model *</FormLabel>
                     <FormControl>
-                      <Input placeholder={currentItemType === "Phone" ? "e.g., iPhone 15 Pro" : "e.g., 20W Fast Charger"} {...field} />
+                      <Input placeholder="e.g., iPhone 15 Pro" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -148,9 +123,9 @@ export function AddPhoneDialog({ open, onOpenChange, onSuccess }: AddPhoneDialog
                 name="imei"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{currentItemType === "Phone" ? "IMEI Number *" : "Serial / Code (Optional)"}</FormLabel>
+                    <FormLabel>IMEI Number *</FormLabel>
                     <FormControl>
-                      <Input placeholder={currentItemType === "Phone" ? "15-digit IMEI" : "Leave blank to auto-generate"} {...field} />
+                      <Input placeholder="15-digit IMEI" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -171,49 +146,47 @@ export function AddPhoneDialog({ open, onOpenChange, onSuccess }: AddPhoneDialog
               />
             </div>
 
-            {currentItemType === "Phone" && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <FormField
-                  control={form.control}
-                  name="ram"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>RAM</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., 8GB" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="storage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Storage</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., 256GB" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="battery_health"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Battery Health</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., 95%" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <FormField
+                control={form.control}
+                name="ram"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>RAM</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 8GB" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="storage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Storage</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 256GB" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="battery_health"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Battery Health</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 95%" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="grid grid-cols-3 gap-3">
               <FormField
