@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   const { data, count, error } = await supabase
     .from("sales")
     .select("*, phones(brand, model, imei)", { count: "exact" })
+    .eq("status", "active")
     .order("created_at", { ascending: false })
     .range((page - 1) * limit, page * limit - 1)
 

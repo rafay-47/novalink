@@ -39,9 +39,11 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer, User, Handshake, Smartphone, Zap } from "lucide-react"
+import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer, User, Handshake, Smartphone, Zap, History } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
+import { RevertSaleDialog } from "@/components/sales/revert-sale-dialog"
 import type { Phone } from "@/types/database"
 
 interface SalePhone extends Phone {
@@ -552,9 +554,17 @@ export default function SalesPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Receipt className="h-4 w-4" />
-                Recent Sales
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4" />
+                  Recent Sales
+                </span>
+                <Link href="/sales/history">
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    <History className="h-3.5 w-3.5 mr-1" />
+                    View All
+                  </Button>
+                </Link>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -563,7 +573,7 @@ export default function SalesPage() {
                   <TableBody>
                     {recentSales.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center py-4 text-muted-foreground">
+                        <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
                           No recent sales
                         </TableCell>
                       </TableRow>
@@ -586,6 +596,15 @@ export default function SalesPage() {
                             {sale.profit !== null && (
                               <div className="text-xs text-green-600">+{formatCurrency(sale.profit)}</div>
                             )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <RevertSaleDialog
+                              sale={sale}
+                              onReverted={() => {
+                                fetchRecentSales()
+                                fetchAvailablePhones()
+                              }}
+                            />
                           </TableCell>
                         </TableRow>
                       ))

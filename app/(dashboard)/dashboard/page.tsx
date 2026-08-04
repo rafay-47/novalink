@@ -86,6 +86,7 @@ export default function DashboardPage() {
       supabase
         .from("sales")
         .select("*, phones(brand, model)")
+        .eq("status", "active")
         .gte("created_at", from)
         .order("created_at", { ascending: false }),
       supabase
@@ -99,6 +100,7 @@ export default function DashboardPage() {
       supabase
         .from("sales")
         .select("*, phones(brand, model)")
+        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(10),
       fetch("/api/parties"),

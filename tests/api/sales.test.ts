@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET as getSales, POST as createSale } from "@/app/api/sales/route";
+import { POST as revertSale } from "@/app/api/sales/[id]/revert/route";
 import * as serverSupabase from "@/lib/supabase/server";
 
 vi.mock("@/lib/supabase/server");
@@ -17,6 +18,7 @@ describe("Sales API & Linked Entity State Updates (/api/sales)", () => {
     const mockSupabase = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(),
         range: vi.fn().mockResolvedValue({
           data: mockSales,
@@ -169,5 +171,176 @@ describe("Sales API & Linked Entity State Updates (/api/sales)", () => {
         sale_id: "sale-202",
       })
     );
+  });
+});
+
+describe("POST /api/sales/[id]/revert", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  const revertRequest = (id: string) =>
+    new Request(`http://localhost:3000/api/sales/${id}/revert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Customer returned device" }),
+    });
+
+  it("soft-deletes the sale, removes linked party credit, and restores the phone to stock", async () => {
+    const salesSelectSingle = vi.fn().mockResolvedValue({
+      data: { id: "sale-1", phone_id: "phone-1", sale_price: 130000, phones: { item_type: "Phone" } },
+      error: null,
+    });
+    const salesUpdateSingle = vi.fn().mockResolvedValue({
+      data: { id: "sale-1", status: "reversed", reversed_by: "admin@novalink.pk" },
+      error: null,
+    });
+    const partyTxDeleteEq = vi.fn().mockResolvedValue({ error: null });
+    const phoneUpdateEq = vi.fn().mockResolvedValue({ error: null });
+    const phoneUpdate = vi.fn().mockReturnValue({ eq: () => ({ eq: phoneUpdateEq }) });
+
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { email: "user@novalink.pk" } } }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "sales") {
+          return {
+            select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ single: salesSelectSingle }) }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  select: vi.fn().mockReturnValue({ single: salesUpdateSingle }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "party_transactions") {
+          return {
+            delete: vi.fn().mockReturnValue({ eq: partyTxDeleteEq }),
+          };
+        }
+        if (table === "phones") {
+          return { update: phoneUpdate };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const response = await revertSale(revertRequest("sale-1"), {
+      params: Promise.resolve({ id: "sale-1" }),
+    } as any);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.sale.status).toBe("reversed");
+
+    // Verify soft-delete update predicate
+    expect(salesUpdateSingle).toHaveBeenCalled();
+
+    // Verify party credit removal
+    expect(partyTxDeleteEq).toHaveBeenCalledWith("sale_id", "sale-1");
+
+    // Verify phone restored to stock only for sold phones
+    expect(phoneUpdate).toHaveBeenCalledWith({ status: "In Stock" });
+    expect(phoneUpdateEq).toHaveBeenCalled();
+  });
+
+  it("does not restore phone to stock for accessory sales (non-Phone item type)", async () => {
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { email: "user@novalink.pk" } } }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "sales") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: "sale-2", phone_id: "phone-2", sale_price: 500, phones: { item_type: "Adapter" } },
+                  error: null,
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  select: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: { id: "sale-2", status: "reversed" },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "party_transactions") {
+          return { delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) };
+        }
+        if (table === "phones") {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const response = await revertSale(revertRequest("sale-2"), {
+      params: Promise.resolve({ id: "sale-2" }),
+    } as any);
+
+    expect(response.status).toBe(200);
+    // phone.update should not have been invoked for accessories
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("phones");
+  });
+
+  it("returns 400 when the sale is already reversed", async () => {
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { email: "user@novalink.pk" } } }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "sales") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: "sale-3", phone_id: "phone-3", sale_price: 1000, phones: { item_type: "Phone" } },
+                  error: null,
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  select: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const response = await revertSale(revertRequest("sale-3"), {
+      params: Promise.resolve({ id: "sale-3" }),
+    } as any);
+
+    expect(response.status).toBe(400);
   });
 });
