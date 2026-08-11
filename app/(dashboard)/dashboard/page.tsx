@@ -21,6 +21,7 @@ interface DashboardData {
   periodSalesCount: number
   totalPeriodSales: number
   totalPeriodProfit: number
+  accessoryProfit: number
   periodPurchasesCount: number
   totalPeriodPurchases: number
   totalPeriodExpenses: number
@@ -85,7 +86,7 @@ export default function DashboardPage() {
         .eq("status", "In Stock"),
       supabase
         .from("sales")
-        .select("*, phones(brand, model)")
+        .select("*, phones(brand, model, item_type)")
         .eq("status", "active")
         .gte("created_at", from)
         .order("created_at", { ascending: false }),
@@ -115,11 +116,26 @@ export default function DashboardPage() {
       .filter((p: any) => p.balance < 0)
       .reduce((sum: number, p: any) => sum + Math.abs(p.balance), 0)
 
+    const periodSalesList = (sales.data || []) as Array<{
+      sale_price?: number | null
+      profit?: number | null
+      phones?: { item_type?: string | null } | null
+    }>
+    const isAccessorySale = (s: { phones?: { item_type?: string | null } | null }) =>
+      s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"
+    const accessoryProfit = periodSalesList
+      .filter(isAccessorySale)
+      .reduce((sum, s) => sum + (s.profit || 0), 0)
+    const phoneProfit = periodSalesList
+      .filter((s) => !isAccessorySale(s))
+      .reduce((sum, s) => sum + (s.profit || 0), 0)
+
     setData({
       phonesCount: phonesCount.count || 0,
       periodSalesCount: sales.data?.length || 0,
       totalPeriodSales: sales.data?.reduce((sum: number, s: any) => sum + (s.sale_price || 0), 0) || 0,
-      totalPeriodProfit: sales.data?.reduce((sum: number, s: any) => sum + (s.profit || 0), 0) || 0,
+      totalPeriodProfit: phoneProfit,
+      accessoryProfit,
       periodPurchasesCount: purchases.data?.length || 0,
       totalPeriodPurchases: purchases.data?.reduce((sum: number, p: any) => sum + (p.purchase_price || 0), 0) || 0,
       totalPeriodExpenses: expenses.data?.reduce((sum: number, e: any) => sum + (e.amount || 0), 0) || 0,
@@ -206,7 +222,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(data.totalPeriodProfit)}</div>
-            <p className="text-xs text-muted-foreground">gross profit</p>
+            <p className="text-xs text-muted-foreground">phones gross profit</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Adapters & Cables: <span className="font-medium">{formatCurrency(data.accessoryProfit)}</span>
+            </p>
           </CardContent>
         </Card>
 

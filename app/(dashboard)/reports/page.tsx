@@ -68,7 +68,12 @@ export default function ReportsPage() {
   })
 
   const totalSales = salesData.reduce((sum, s) => sum + (s.sale_price || 0), 0)
-  const totalProfit = salesData.reduce((sum, s) => sum + (s.profit || 0), 0)
+  const accessoryProfit = salesData
+    .filter((s) => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable")
+    .reduce((sum, s) => sum + (s.profit || 0), 0)
+  const totalProfit = salesData
+    .filter((s) => !(s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"))
+    .reduce((sum, s) => sum + (s.profit || 0), 0)
   const totalExpenses = expensesData.reduce((sum, e) => sum + e.amount, 0)
   const netProfit = totalProfit - totalExpenses
 
@@ -115,7 +120,10 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">{formatCurrency(totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">gross profit</p>
+            <p className="text-xs text-muted-foreground">phones gross profit</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Adapters & Cables: <span className="font-medium">{formatCurrency(accessoryProfit)}</span>
+            </p>
           </CardContent>
         </Card>
 
