@@ -19,10 +19,8 @@ describe("Sales API & Linked Entity State Updates (/api/sales)", () => {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        range: vi.fn().mockResolvedValue({
+        order: vi.fn().mockResolvedValue({
           data: mockSales,
-          count: 1,
           error: null,
         }),
       }),
@@ -35,6 +33,71 @@ describe("Sales API & Linked Entity State Updates (/api/sales)", () => {
 
     expect(response.status).toBe(200);
     expect(body.sales).toHaveLength(1);
+    expect(body.total).toBe(1);
+  });
+
+  it("GET /api/sales?category=accessories returns only Adapter/Cable sales", async () => {
+    const mockSales = [
+      { id: "s2", sale_price: 800, phones: { brand: "Anker", model: "20W", item_type: "Adapter" } },
+      { id: "s3", sale_price: 300, phones: { brand: "Belkin", model: "Type-C", item_type: "Cable" } },
+      { id: "s4", sale_price: 130000, phones: { brand: "Apple", model: "iPhone 15", item_type: "Phone" } },
+    ];
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({
+          data: mockSales,
+          error: null,
+        }),
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const response = await getSales(
+      new Request("http://localhost:3000/api/sales?category=accessories")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.sales).toHaveLength(2);
+    expect(body.sales.map((s: { phones: { item_type: string } }) => s.phones.item_type)).toEqual([
+      "Adapter",
+      "Cable",
+    ]);
+  });
+
+  it("GET /api/sales?category=phones excludes Adapter/Cable sales", async () => {
+    const mockSales = [
+      { id: "s2", sale_price: 800, phones: { brand: "Anker", model: "20W", item_type: "Adapter" } },
+      { id: "s3", sale_price: 300, phones: { brand: "Belkin", model: "Type-C", item_type: "Cable" } },
+      { id: "s4", sale_price: 130000, phones: { brand: "Apple", model: "iPhone 15", item_type: "Phone" } },
+      { id: "s5", sale_price: 90000, phones: { brand: "Samsung", model: "A54", item_type: null } },
+    ];
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({
+          data: mockSales,
+          error: null,
+        }),
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const response = await getSales(
+      new Request("http://localhost:3000/api/sales?category=phones")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.sales).toHaveLength(2);
+    expect(body.sales.map((s: { id: string }) => s.id)).toEqual(["s4", "s5"]);
   });
 
   it("POST /api/sales calculates profit correctly and updates phone status to 'Sold'", async () => {

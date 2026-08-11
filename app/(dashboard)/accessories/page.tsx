@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Fragment } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PhoneFormValues, phoneSchema, SaleFormValues, saleSchema } from "@/lib/validations"
@@ -46,9 +46,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Zap, Plus, Search, DollarSign, Pencil, Trash2, MoreHorizontal, ShoppingCart, User, Handshake, Package } from "lucide-react"
+import { Zap, Plus, Search, DollarSign, Pencil, Trash2, MoreHorizontal, ShoppingCart, User, Handshake, Package, Receipt, Users } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
+import { RevertSaleDialog } from "@/components/sales/revert-sale-dialog"
 import type { Phone, Party } from "@/types/database"
+
+interface AccessorySale {
+  id: string
+  invoice_number?: string | null
+  customer_name?: string | null
+  customer_phone?: string | null
+  sale_price?: number | null
+  profit?: number | null
+  payment_method?: string | null
+  notes?: string | null
+  created_at?: string
+  phones?: { brand?: string; model?: string; item_type?: string | null } | null
+}
+
+const getSaleQuantity = (sale: AccessorySale): number => {
+  const match = sale.notes?.match(/Qty:\s*(\d+)/i)
+  return match ? parseInt(match[1], 10) : 1
+}
 
 export default function AccessoriesPage() {
   const [items, setItems] = useState<Phone[]>([])
@@ -70,6 +90,8 @@ export default function AccessoriesPage() {
   const [saleLoading, setSaleLoading] = useState(false)
   const [invoiceData, setInvoiceData] = useState<any>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [sales, setSales] = useState<AccessorySale[]>([])
+  const [groupByParty, setGroupByParty] = useState(false)
 
   // Add Item Form
   const addForm = useForm<PhoneFormValues>({
@@ -106,7 +128,18 @@ export default function AccessoriesPage() {
   useEffect(() => {
     fetchAccessories()
     fetchParties()
+    fetchSales()
   }, [])
+
+  const fetchSales = async () => {
+    try {
+      const response = await fetch("/api/sales?category=accessories", { cache: "no-store" })
+      const data = await response.json()
+      setSales(data.sales || [])
+    } catch (error) {
+      console.error("Failed to fetch accessory sales:", error)
+    }
+  }
 
   const fetchAccessories = async () => {
     setLoading(true)
@@ -152,6 +185,7 @@ export default function AccessoriesPage() {
         addForm.reset()
         setAddDialogOpen(false)
         fetchAccessories()
+        fetchSales()
       }
     } catch (error) {
       console.error("Failed to add accessory:", error)
@@ -188,6 +222,7 @@ export default function AccessoriesPage() {
         setEditDialogOpen(false)
         setEditingItem(null)
         fetchAccessories()
+        fetchSales()
       }
     } catch (error) {
       console.error("Failed to update accessory:", error)
@@ -200,6 +235,7 @@ export default function AccessoriesPage() {
       const response = await fetch(`/api/phones/${id}`, { method: "DELETE" })
       if (response.ok) {
         fetchAccessories()
+        fetchSales()
       }
     } catch (error) {
       console.error("Failed to delete accessory:", error)
@@ -252,6 +288,7 @@ export default function AccessoriesPage() {
         setSaleDialogOpen(false)
         setShowSuccess(true)
         fetchAccessories()
+        fetchSales()
       }
     } catch (error) {
       console.error("Failed to complete direct sale:", error)
@@ -271,8 +308,63 @@ export default function AccessoriesPage() {
   })
 
   const inStockItems = items.filter((i) => i.status === "In Stock")
-  const soldItems = items.filter((i) => i.status === "Sold")
   const totalStockValue = inStockItems.reduce((sum, i) => sum + (i.purchase_price || 0), 0)
+
+  const partyGroups = Object.entries(
+    sales.reduce<Record<string, AccessorySale[]>>((acc, sale) => {
+      const key = sale.customer_name || "Walk-in"
+      ;(acc[key] = acc[key] || []).push(sale)
+      return acc
+    }, {})
+  ).sort((a, b) => {
+    const sum = (rows: AccessorySale[]) => rows.reduce((t, r) => t + (r.sale_price || 0), 0)
+    return sum(b[1]) - sum(a[1])
+  })
+
+  const renderSaleRow = (sale: AccessorySale) => (
+    <TableRow key={sale.id}>
+      <TableCell className="font-mono text-xs">{sale.invoice_number || "-"}</TableCell>
+      <TableCell>
+        <div className="font-medium">
+          {sale.phones?.brand} {sale.phones?.model}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {sale.phones?.item_type || "Accessory"}
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <Badge variant="outline">x{getSaleQuantity(sale)}</Badge>
+      </TableCell>
+      <TableCell>
+        <div className="text-sm">{sale.customer_name || "Walk-in"}</div>
+        {sale.customer_phone && (
+          <div className="text-xs text-muted-foreground">{sale.customer_phone}</div>
+        )}
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {sale.created_at ? formatDateTime(sale.created_at) : "-"}
+      </TableCell>
+      <TableCell className="text-right font-medium">
+        {formatCurrency(sale.sale_price || 0)}
+      </TableCell>
+      <TableCell className="text-right">
+        {sale.profit != null && (
+          <span className={sale.profit >= 0 ? "text-green-600" : "text-red-600"}>
+            {formatCurrency(sale.profit)}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        <RevertSaleDialog
+          sale={sale}
+          onReverted={() => {
+            setSales((prev) => prev.filter((s) => s.id !== sale.id))
+            fetchSales()
+          }}
+        />
+      </TableCell>
+    </TableRow>
+  )
 
   return (
     <div className="space-y-4">
@@ -334,15 +426,23 @@ export default function AccessoriesPage() {
             <ShoppingCart className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{soldItems.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{sales.length}</div>
             <p className="text-xs text-muted-foreground">Completed direct sales</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Table Card */}
-      <Card>
-        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Tabs: Inventory / Sales */}
+      <Tabs defaultValue="inventory" className="space-y-4">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="sales">Sales ({sales.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="inventory" className="space-y-4">
+          {/* Main Table Card */}
+          <Card>
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="flex gap-1 p-0.5 bg-muted rounded-md text-xs">
               <button
@@ -463,6 +563,83 @@ export default function AccessoriesPage() {
           </div>
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="sales" className="space-y-4">
+      {/* Sales Section */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-primary" />
+              Adapters & Cables Sales
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Completed direct sales for adapters and cables</p>
+          </div>
+          <Button
+            size="sm"
+            variant={groupByParty ? "default" : "outline"}
+            onClick={() => setGroupByParty((v) => !v)}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            {groupByParty ? "Ungroup" : "Group by Party"}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-md overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Profit</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sales.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      No adapters & cables sales yet
+                    </TableCell>
+                  </TableRow>
+                ) : groupByParty ? (
+                  partyGroups.map(([partyName, partySales]) => (
+                    <Fragment key={partyName}>
+                      <TableRow className="bg-muted">
+                        <TableCell colSpan={8}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="font-medium flex items-center gap-2">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                              {partyName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {partySales.length} sale{partySales.length === 1 ? "" : "s"} · Qty{" "}
+                              {partySales.reduce((sum, s) => sum + getSaleQuantity(s), 0)} ·{" "}
+                              {formatCurrency(
+                                partySales.reduce((sum, s) => sum + (s.sale_price || 0), 0)
+                              )}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {partySales.map(renderSaleRow)}
+                    </Fragment>
+                  ))
+                ) : (
+                  sales.map(renderSaleRow)
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+      </TabsContent>
+      </Tabs>
 
       {/* Add Item Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

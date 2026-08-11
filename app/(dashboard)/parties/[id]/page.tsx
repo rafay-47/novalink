@@ -37,6 +37,7 @@ import type { Party, PartyTransaction } from "@/types/database"
 interface TransactionWithPhone extends PartyTransaction {
   sales?: {
     phone_id: string | null
+    notes?: string | null
     phones?: {
       item_type?: string | null
       brand: string
@@ -51,6 +52,7 @@ interface TransactionWithPhone extends PartyTransaction {
   } | null
   purchases?: {
     phone_id: string | null
+    notes?: string | null
     phones?: {
       item_type?: string | null
       brand: string
@@ -63,6 +65,11 @@ interface TransactionWithPhone extends PartyTransaction {
       condition: string | null
     } | null
   } | null
+}
+
+const getQuantity = (notes?: string | null): number => {
+  const match = notes?.match(/Qty:\s*(\d+)/i)
+  return match ? parseInt(match[1], 10) : 1
 }
 
 interface SoldPhone {
@@ -493,6 +500,7 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
                       <TableHead>{soldCategoryTab === "phones" ? "Device" : "Item Title"}</TableHead>
                       <TableHead>{soldCategoryTab === "phones" ? "IMEI" : "Item Code / Serial"}</TableHead>
                       <TableHead>{soldCategoryTab === "phones" ? "Specs" : "Category"}</TableHead>
+                      {soldCategoryTab === "accessories" && <TableHead className="text-right">Qty</TableHead>}
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -531,6 +539,13 @@ export default function PartyDetailPage({ params }: { params: Promise<{ id: stri
                             </Badge>
                           )}
                         </TableCell>
+                        {soldCategoryTab === "accessories" && (
+                          <TableCell className="text-right">
+                            <Badge variant="outline" className="text-xs">
+                              x{getQuantity(sp.transaction.sales?.notes)}
+                            </Badge>
+                          </TableCell>
+                        )}
                         <TableCell className="text-right font-medium">
                           {formatCurrency(sp.amount)}
                         </TableCell>

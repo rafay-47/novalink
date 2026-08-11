@@ -40,7 +40,7 @@ export default function SalesHistoryPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`/api/sales?page=${page}&limit=${limit}`)
+    fetch(`/api/sales?page=${page}&limit=${limit}&category=phones`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return

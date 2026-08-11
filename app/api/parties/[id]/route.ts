@@ -33,6 +33,7 @@ export async function GET(
       *,
       sales:sale_id (
         phone_id,
+        notes,
         phones (
           brand,
           model,
@@ -41,11 +42,13 @@ export async function GET(
           storage,
           ram,
           pta_status,
-          condition
+          condition,
+          item_type
         )
       ),
       purchases:purchase_id (
         phone_id,
+        notes,
         phones (
           brand,
           model,
@@ -54,7 +57,8 @@ export async function GET(
           storage,
           ram,
           pta_status,
-          condition
+          condition,
+          item_type
         )
       )
     `)

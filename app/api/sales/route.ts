@@ -3,25 +3,43 @@ import { NextResponse } from "next/server"
 import { saleSchema, customerSchema } from "@/lib/validations"
 import { generateInvoiceNumber } from "@/lib/utils"
 
+interface SaleRow {
+  phones?: { item_type?: string | null } | null
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const page = parseInt(searchParams.get("page") || "1")
   const limit = parseInt(searchParams.get("limit") || "20")
+  const category = searchParams.get("category") // "phones" | "accessories" | null
 
   const supabase = await createClient()
 
-  const { data, count, error } = await supabase
+  const { data, error } = await supabase
     .from("sales")
-    .select("*, phones(brand, model, imei)", { count: "exact" })
+    .select("*, phones(brand, model, imei, item_type)")
     .eq("status", "active")
     .order("created_at", { ascending: false })
-    .range((page - 1) * limit, page * limit - 1)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ sales: data, total: count })
+  const allSales = (data as SaleRow[]) || []
+
+  let sales = allSales
+  if (category === "phones") {
+    sales = allSales.filter((s) => !s.phones?.item_type || s.phones.item_type === "Phone")
+  } else if (category === "accessories") {
+    sales = allSales.filter(
+      (s) => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"
+    )
+  }
+
+  const total = sales.length
+  const paged = sales.slice((page - 1) * limit, page * limit)
+
+  return NextResponse.json({ sales: paged, total })
 }
 
 export async function POST(request: Request) {

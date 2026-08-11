@@ -95,7 +95,7 @@ export default function SalesPage() {
   }
 
   const fetchRecentSales = async () => {
-    const response = await fetch("/api/sales")
+    const response = await fetch("/api/sales?category=phones", { cache: "no-store" })
     const data = await response.json()
     setRecentSales((data.sales || []).slice(0, 10))
   }
