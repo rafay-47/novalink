@@ -68,6 +68,9 @@ export const saleSchema = z.object({
   amount_paid: z.number().min(0).optional(),
   sold_by: z.string().optional(),
   notes: z.string().optional(),
+  date_option: z.enum(["today", "custom"]).optional(),
+  sale_date: z.string().optional(),
+  created_at: z.string().optional(),
 }).refine(
   (data) => data.customer_name || data.party_id,
   { message: "Either customer name or party is required", path: ["customer_name"] }

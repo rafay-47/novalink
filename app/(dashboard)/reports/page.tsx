@@ -21,6 +21,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart3, TrendingUp, TrendingDown, Package, DollarSign } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
+function getRangeStart(range: string): Date {
+  const now = new Date()
+  switch (range) {
+    case "today":
+      now.setHours(0, 0, 0, 0)
+      return now
+    case "week": {
+      const day = now.getDay()
+      const diff = day === 0 ? 6 : day - 1
+      now.setDate(now.getDate() - diff)
+      now.setHours(0, 0, 0, 0)
+      return now
+    }
+    case "month":
+      now.setDate(1)
+      now.setHours(0, 0, 0, 0)
+      return now
+    case "year":
+      now.setMonth(0, 1)
+      now.setHours(0, 0, 0, 0)
+      return now
+    case "all":
+    default:
+      return new Date(0)
+  }
+}
+
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("month")
   const [salesCategoryFilter, setSalesCategoryFilter] = useState<"all" | "phones" | "accessories">("all")
@@ -32,7 +59,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReports()
-  }, [dateRange])
+  }, [])
 
   const fetchReports = async () => {
     setLoading(true)
@@ -60,22 +87,34 @@ export default function ReportsPage() {
     }
   }
 
-  const filteredSalesData = salesData.filter((sale) => {
+  const rangeStartDate = getRangeStart(dateRange)
+
+  const periodSales = salesData.filter((s) => {
+    if (!s.created_at) return true
+    return new Date(s.created_at) >= rangeStartDate
+  })
+
+  const periodExpenses = expensesData.filter((e) => {
+    if (!e.created_at) return true
+    return new Date(e.created_at) >= rangeStartDate
+  })
+
+  const filteredSalesData = periodSales.filter((sale) => {
     const isAccessory = sale.phones?.item_type === "Adapter" || sale.phones?.item_type === "Cable"
     if (salesCategoryFilter === "phones") return !isAccessory
     if (salesCategoryFilter === "accessories") return isAccessory
     return true
   })
 
-  const totalSales = salesData.reduce((sum, s) => sum + (s.sale_price || 0), 0)
-  const accessoryProfit = salesData
+  const totalSales = periodSales.reduce((sum, s) => sum + (s.sale_price || 0), 0)
+  const accessoryProfit = periodSales
     .filter((s) => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable")
     .reduce((sum, s) => sum + (s.profit || 0), 0)
-  const totalProfit = salesData
+  const totalProfit = periodSales
     .filter((s) => !(s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"))
     .reduce((sum, s) => sum + (s.profit || 0), 0)
-  const totalExpenses = expensesData.reduce((sum, e) => sum + e.amount, 0)
-  const netProfit = totalProfit - totalExpenses
+  const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.amount, 0)
+  const netProfit = totalProfit + accessoryProfit - totalExpenses
 
   const phoneItems = phonesList.filter((p) => !p.item_type || p.item_type === "Phone")
   const accessoryItems = phonesList.filter((p) => p.item_type === "Adapter" || p.item_type === "Cable")
@@ -326,7 +365,7 @@ export default function ReportsPage() {
                   <TableBody>
                     {["Rent", "Electricity", "Internet", "Salary", "Accessories", "Repairs", "Miscellaneous"].map(
                       (category) => {
-                        const categoryExpenses = expensesData.filter((e) => e.category === category)
+                        const categoryExpenses = periodExpenses.filter((e) => e.category === category)
                         const total = categoryExpenses.reduce((sum, e) => sum + e.amount, 0)
                         return (
                           <TableRow key={category}>

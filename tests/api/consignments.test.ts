@@ -213,4 +213,92 @@ describe("Party Consignments API (/api/consignments)", () => {
       })
     );
   });
+
+  it("POST /api/consignments/[id]/sell supports custom backdated sale date", async () => {
+    const mockConsignmentPhone = {
+      id: "phone-400",
+      brand: "Samsung",
+      model: "S23",
+      purchase_price: 120000,
+      status: "Reserved",
+      reserved_party_id: "party-888",
+    };
+
+    const saleInsertMock = vi.fn().mockReturnThis();
+    const partyTxMock = vi.fn().mockResolvedValue({ data: {}, error: null });
+
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { email: "admin@novalink.pk" } } }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "phones") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: mockConsignmentPhone, error: null }),
+            update: vi.fn().mockReturnThis(),
+          };
+        }
+        if (table === "parties") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: { name: "King Mobiles" }, error: null }),
+          };
+        }
+        if (table === "sales") {
+          return {
+            insert: saleInsertMock,
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: "sale-404", sale_price: 140000, profit: 20000, created_at: "2026-08-12T10:00:00.000Z" },
+              error: null,
+            }),
+          };
+        }
+        if (table === "party_transactions") {
+          return {
+            insert: partyTxMock,
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const response = await sellConsignment(
+      new Request("http://localhost:3000/api/consignments/phone-400/sell", {
+        method: "POST",
+        body: JSON.stringify({
+          sale_price: 140000,
+          payment_method: "Cash",
+          amount_paid: 40000,
+          date_option: "custom",
+          sale_date: "2026-08-12",
+        }),
+      }),
+      { params: Promise.resolve({ id: "phone-400" }) }
+    );
+
+    const body = await response.json();
+    expect(response.status).toBe(201);
+    expect(body.success).toBe(true);
+
+    expect(saleInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        created_at: expect.stringMatching(/^2026-08-12/),
+      })
+    );
+    expect(partyTxMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        party_id: "party-888",
+        type: "credit_sale",
+        amount: 100000,
+        sale_id: "sale-404",
+        created_at: expect.stringMatching(/^2026-08-12/),
+      })
+    );
+  });
 });

@@ -235,6 +235,92 @@ describe("Sales API & Linked Entity State Updates (/api/sales)", () => {
       })
     );
   });
+
+  it("POST /api/sales assigns custom backdated created_at to sale and party_transactions", async () => {
+    const saleInsertMock = vi.fn().mockReturnThis();
+    const partyTxInsertMock = vi.fn().mockResolvedValue({ data: {}, error: null });
+
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { email: "seller@novalink.pk" } } }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "phones") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: { purchase_price: 150000 }, error: null }),
+            update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+          };
+        }
+        if (table === "parties") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: { name: "United Mobiles" }, error: null }),
+          };
+        }
+        if (table === "sales") {
+          return {
+            insert: saleInsertMock,
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: "sale-303",
+                sale_price: 180000,
+                customer_name: "United Mobiles",
+                created_at: "2026-08-10T12:00:00.000Z",
+              },
+              error: null,
+            }),
+          };
+        }
+        if (table === "party_transactions") {
+          return {
+            insert: partyTxInsertMock,
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const payload = {
+      phone_id: "phone-3",
+      party_id: "party-55",
+      sale_price: 180000,
+      amount_paid: 100000,
+      payment_method: "Cash",
+      date_option: "custom",
+      sale_date: "2026-08-10",
+    };
+
+    const response = await createSale(
+      new Request("http://localhost:3000/api/sales", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    // Verify sales record was inserted with created_at starting with the custom date
+    expect(saleInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        created_at: expect.stringMatching(/^2026-08-10/),
+      })
+    );
+    // Verify party_transactions record was inserted with matching backdated created_at
+    expect(partyTxInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        party_id: "party-55",
+        type: "credit_sale",
+        amount: 80000,
+        sale_id: "sale-303",
+        created_at: expect.stringMatching(/^2026-08-10/),
+      })
+    );
+  });
 });
 
 describe("POST /api/sales/[id]/revert", () => {

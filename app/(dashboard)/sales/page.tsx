@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer, User, Handshake, Smartphone, Zap, History } from "lucide-react"
+import { Search, ShoppingCart, DollarSign, Receipt, Phone as PhoneIcon, Printer, User, Handshake, Smartphone, Zap, History, Calendar as CalendarIcon, Clock } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
@@ -75,6 +75,8 @@ export default function SalesPage() {
       party_id: "",
       amount_paid: 0,
       notes: "",
+      date_option: "today",
+      sale_date: "",
     },
   })
 
@@ -134,6 +136,8 @@ export default function SalesPage() {
       party_id: "",
       amount_paid: 0,
       notes: "",
+      date_option: "today",
+      sale_date: "",
     })
   }
 
@@ -534,7 +538,72 @@ export default function SalesPage() {
                         </div>
                       )}
 
-                      <div className="flex justify-end gap-2">
+                      {/* Date Selection: Today vs Select Date */}
+                      <div className="space-y-2 pt-2 border-t">
+                        <FormLabel className="text-sm font-medium">Sale Date</FormLabel>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              form.setValue("date_option", "today")
+                              form.setValue("sale_date", "")
+                            }}
+                            className={cn(
+                              "flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer",
+                              (form.watch("date_option") || "today") === "today"
+                                ? "border-primary bg-primary/10 text-primary font-semibold"
+                                : "border-input bg-background hover:bg-muted text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="h-4 w-4" />
+                            Today
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              form.setValue("date_option", "custom")
+                              if (!form.getValues("sale_date")) {
+                                const yesterday = new Date()
+                                yesterday.setDate(yesterday.getDate() - 1)
+                                form.setValue("sale_date", yesterday.toISOString().split("T")[0])
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer",
+                              form.watch("date_option") === "custom"
+                                ? "border-primary bg-primary/10 text-primary font-semibold"
+                                : "border-input bg-background hover:bg-muted text-muted-foreground"
+                            )}
+                          >
+                            <Clock className="h-4 w-4" />
+                            Select Date
+                          </button>
+                        </div>
+
+                        {form.watch("date_option") === "custom" && (
+                          <FormField
+                            control={form.control}
+                            name="sale_date"
+                            render={({ field }) => (
+                              <FormItem className="pt-1">
+                                <FormLabel className="text-xs text-muted-foreground">Select Past Sale Date</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="date"
+                                    max={new Date().toISOString().split("T")[0]}
+                                    {...field}
+                                    value={field.value || ""}
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={handleCancel}>
                           Cancel
                         </Button>

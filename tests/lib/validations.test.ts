@@ -129,6 +129,36 @@ describe("Validation Schemas (lib/validations.ts)", () => {
       expect(result.success).toBe(true);
     });
 
+    it("validates sale with custom previous date and date_option", () => {
+      const validCustomDateSale = {
+        phone_id: "phone-123",
+        customer_name: "Farhan",
+        customer_phone: "03009988776",
+        sale_price: 140000,
+        payment_method: "Cash",
+        date_option: "custom",
+        sale_date: "2026-08-15",
+      };
+      const result = saleSchema.safeParse(validCustomDateSale);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.date_option).toBe("custom");
+        expect(result.data.sale_date).toBe("2026-08-15");
+      }
+    });
+
+    it("validates sale with explicit created_at ISO timestamp", () => {
+      const validIsoDateSale = {
+        phone_id: "phone-123",
+        customer_name: "Farhan",
+        sale_price: 140000,
+        payment_method: "Cash",
+        created_at: "2026-08-15T10:30:00.000Z",
+      };
+      const result = saleSchema.safeParse(validIsoDateSale);
+      expect(result.success).toBe(true);
+    });
+
     it("validates sale with party_id instead of customer_name", () => {
       const validPartySale = {
         phone_id: "phone-456",

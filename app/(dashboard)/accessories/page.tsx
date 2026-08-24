@@ -46,9 +46,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Zap, Plus, Search, DollarSign, Pencil, Trash2, MoreHorizontal, ShoppingCart, User, Handshake, Package, Receipt, Users } from "lucide-react"
+import { Zap, Plus, Search, DollarSign, Pencil, Trash2, MoreHorizontal, ShoppingCart, User, Handshake, Package, Receipt, Users, Calendar as CalendarIcon, Clock } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCurrency, formatDateTime } from "@/lib/utils"
+import { cn, formatCurrency, formatDateTime } from "@/lib/utils"
 import { RevertSaleDialog } from "@/components/sales/revert-sale-dialog"
 import type { Phone, Party } from "@/types/database"
 
@@ -122,6 +122,8 @@ export default function AccessoriesPage() {
       sale_price: 0,
       payment_method: "Cash",
       amount_paid: 0,
+      date_option: "today",
+      sale_date: "",
     },
   })
 
@@ -254,6 +256,8 @@ export default function AccessoriesPage() {
       customer_name: "",
       customer_phone: "",
       party_id: "",
+      date_option: "today",
+      sale_date: "",
     })
     setSaleDialogOpen(true)
   }
@@ -1114,7 +1118,72 @@ export default function AccessoriesPage() {
                     )}
                   />
 
-                  <DialogFooter>
+                  {/* Date Selection: Today vs Select Date */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <FormLabel className="text-sm font-medium">Sale Date</FormLabel>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saleForm.setValue("date_option", "today")
+                          saleForm.setValue("sale_date", "")
+                        }}
+                        className={cn(
+                          "flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer",
+                          (saleForm.watch("date_option") || "today") === "today"
+                            ? "border-primary bg-primary/10 text-primary font-semibold"
+                            : "border-input bg-background hover:bg-muted text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="h-4 w-4" />
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saleForm.setValue("date_option", "custom")
+                          if (!saleForm.getValues("sale_date")) {
+                            const yesterday = new Date()
+                            yesterday.setDate(yesterday.getDate() - 1)
+                            saleForm.setValue("sale_date", yesterday.toISOString().split("T")[0])
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer",
+                          saleForm.watch("date_option") === "custom"
+                            ? "border-primary bg-primary/10 text-primary font-semibold"
+                            : "border-input bg-background hover:bg-muted text-muted-foreground"
+                        )}
+                      >
+                        <Clock className="h-4 w-4" />
+                        Select Date
+                      </button>
+                    </div>
+
+                    {saleForm.watch("date_option") === "custom" && (
+                      <FormField
+                        control={saleForm.control}
+                        name="sale_date"
+                        render={({ field }) => (
+                          <FormItem className="pt-1">
+                            <FormLabel className="text-xs text-muted-foreground">Select Past Sale Date</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="date"
+                                max={new Date().toISOString().split("T")[0]}
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  <DialogFooter className="pt-2">
                     <Button type="button" variant="outline" onClick={() => setSaleDialogOpen(false)}>
                       Cancel
                     </Button>

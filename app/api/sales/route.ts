@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { phone_id, sale_price, payment_method, customer_name, customer_phone, notes, party_id, amount_paid, quantity } = body
+    const { phone_id, sale_price, payment_method, customer_name, customer_phone, notes, party_id, amount_paid, quantity, created_at, sale_date, date_option } = body
 
     const { data: phone } = await supabase
       .from("phones")
@@ -88,19 +88,42 @@ export async function POST(request: Request) {
       }
     }
 
+    // Resolve custom backdated created_at timestamp if provided
+    let customCreatedAt: string | undefined = undefined
+    const rawDate = created_at || (date_option === "custom" ? sale_date : undefined) || sale_date
+    if (rawDate && typeof rawDate === "string" && rawDate.trim().length > 0) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+        const now = new Date()
+        const [y, m, d] = rawDate.trim().split("-").map(Number)
+        const dateObj = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds())
+        customCreatedAt = dateObj.toISOString()
+      } else {
+        const parsed = new Date(rawDate)
+        if (!isNaN(parsed.getTime())) {
+          customCreatedAt = parsed.toISOString()
+        }
+      }
+    }
+
+    const saleInsertPayload: Record<string, any> = {
+      phone_id,
+      sale_price,
+      profit,
+      payment_method: payment_method || "Cash",
+      customer_name: finalCustomerName,
+      customer_phone,
+      sold_by: user.email,
+      invoice_number,
+      notes: itemQty > 1 ? `Qty: ${itemQty}${notes ? ` | ${notes}` : ""}` : notes,
+    }
+
+    if (customCreatedAt) {
+      saleInsertPayload.created_at = customCreatedAt
+    }
+
     const { data: sale, error: saleError } = await supabase
       .from("sales")
-      .insert({
-        phone_id,
-        sale_price,
-        profit,
-        payment_method: payment_method || "Cash",
-        customer_name: finalCustomerName,
-        customer_phone,
-        sold_by: user.email,
-        invoice_number,
-        notes: itemQty > 1 ? `Qty: ${itemQty}${notes ? ` | ${notes}` : ""}` : notes,
-      })
+      .insert(saleInsertPayload)
       .select("*, phones(brand, model, imei, item_type)")
       .single()
 
@@ -121,19 +144,24 @@ export async function POST(request: Request) {
       const paid = amount_paid || 0
       const remaining = sale_price - paid
       if (remaining > 0) {
+        const partyTxPayload: Record<string, any> = {
+          party_id,
+          type: "credit_sale",
+          amount: remaining,
+          reference_id: sale.id,
+          reference_type: "sale",
+          sale_id: sale.id,
+          payment_method: payment_method || null,
+          description: `Credit sale: ${invoice_number}`,
+          created_by: user.email,
+        }
+        if (customCreatedAt || sale.created_at) {
+          partyTxPayload.created_at = customCreatedAt || sale.created_at
+        }
+
         await supabase
           .from("party_transactions")
-          .insert({
-            party_id,
-            type: "credit_sale",
-            amount: remaining,
-            reference_id: sale.id,
-            reference_type: "sale",
-            sale_id: sale.id,
-            payment_method: payment_method || null,
-            description: `Credit sale: ${invoice_number}`,
-            created_by: user.email,
-          })
+          .insert(partyTxPayload)
       }
     }
 

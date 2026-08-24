@@ -8,6 +8,9 @@ const convertConsignmentToSaleSchema = z.object({
   payment_method: z.enum(["Cash", "Card", "Transfer", "JazzCash", "EasyPaisa", "Other"]),
   amount_paid: z.number().min(0).optional(),
   notes: z.string().optional(),
+  date_option: z.enum(["today", "custom"]).optional(),
+  sale_date: z.string().optional(),
+  created_at: z.string().optional(),
 })
 
 export async function POST(
@@ -33,7 +36,7 @@ export async function POST(
       )
     }
 
-    const { sale_price, payment_method, amount_paid, notes } = result.data
+    const { sale_price, payment_method, amount_paid, notes, created_at, sale_date, date_option } = result.data
 
     // Fetch consignment phone details
     const { data: phone, error: phoneError } = await supabase
@@ -63,19 +66,42 @@ export async function POST(
     const profit = phone.purchase_price ? sale_price - phone.purchase_price : null
     const invoice_number = generateInvoiceNumber()
 
+    // Resolve custom backdated created_at timestamp if provided
+    let customCreatedAt: string | undefined = undefined
+    const rawDate = created_at || (date_option === "custom" ? sale_date : undefined) || sale_date
+    if (rawDate && typeof rawDate === "string" && rawDate.trim().length > 0) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+        const now = new Date()
+        const [y, m, d] = rawDate.trim().split("-").map(Number)
+        const dateObj = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds())
+        customCreatedAt = dateObj.toISOString()
+      } else {
+        const parsed = new Date(rawDate)
+        if (!isNaN(parsed.getTime())) {
+          customCreatedAt = parsed.toISOString()
+        }
+      }
+    }
+
+    const saleInsertPayload: Record<string, any> = {
+      phone_id: phone.id,
+      sale_price,
+      profit,
+      payment_method: payment_method || "Cash",
+      customer_name,
+      sold_by: user.email,
+      invoice_number,
+      notes: notes || `Converted from party consignment (${customer_name})`,
+    }
+
+    if (customCreatedAt) {
+      saleInsertPayload.created_at = customCreatedAt
+    }
+
     // Insert sale record
     const { data: sale, error: saleError } = await supabase
       .from("sales")
-      .insert({
-        phone_id: phone.id,
-        sale_price,
-        profit,
-        payment_method: payment_method || "Cash",
-        customer_name,
-        sold_by: user.email,
-        invoice_number,
-        notes: notes || `Converted from party consignment (${customer_name})`,
-      })
+      .insert(saleInsertPayload)
       .select("*, phones(brand, model, imei)")
       .single()
 
@@ -97,19 +123,24 @@ export async function POST(
       const paid = amount_paid || 0
       const remaining = sale_price - paid
       if (remaining > 0) {
+        const partyTxPayload: Record<string, any> = {
+          party_id,
+          type: "credit_sale",
+          amount: remaining,
+          reference_id: sale.id,
+          reference_type: "sale",
+          sale_id: sale.id,
+          payment_method: payment_method || null,
+          description: `Credit sale: ${phone.brand} ${phone.model} (Invoice #${invoice_number})`,
+          created_by: user.email,
+        }
+        if (customCreatedAt || sale.created_at) {
+          partyTxPayload.created_at = customCreatedAt || sale.created_at
+        }
+
         await supabase
           .from("party_transactions")
-          .insert({
-            party_id,
-            type: "credit_sale",
-            amount: remaining,
-            reference_id: sale.id,
-            reference_type: "sale",
-            sale_id: sale.id,
-            payment_method: payment_method || null,
-            description: `Credit sale: ${phone.brand} ${phone.model} (Invoice #${invoice_number})`,
-            created_by: user.email,
-          })
+          .insert(partyTxPayload)
       }
     }
 
