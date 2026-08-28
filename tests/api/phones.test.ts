@@ -43,6 +43,37 @@ describe("Phones API Routes (/api/phones)", () => {
     expect(body.total).toBe(2);
   });
 
+  it("GET /api/phones?item_type=accessories filters for adapters and cables", async () => {
+    const mockAccessories = [
+      { id: "a1", brand: "Anker", model: "20W Charger", item_type: "Adapter", status: "In Stock" },
+      { id: "c1", brand: "Apple", model: "USB-C Cable", item_type: "Cable", status: "In Stock" },
+    ];
+
+    const inMock = vi.fn().mockReturnThis();
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        in: inMock,
+        range: vi.fn().mockResolvedValue({
+          data: mockAccessories,
+          count: 2,
+          error: null,
+        }),
+      }),
+    };
+
+    vi.spyOn(serverSupabase, "createClient").mockResolvedValue(mockSupabase as any);
+
+    const request = new Request("http://localhost:3000/api/phones?item_type=accessories&limit=1000");
+    const response = await getPhones(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.phones).toHaveLength(2);
+    expect(inMock).toHaveBeenCalledWith("item_type", ["Adapter", "Cable", "adapter", "cable"]);
+  });
+
   it("POST /api/phones creates a new phone entry", async () => {
     const newPhone = {
       brand: "OnePlus",

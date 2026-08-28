@@ -84,8 +84,9 @@ export default function InventoryPage() {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set("search", debouncedSearch)
       if (statusFilter !== "all") params.set("status", statusFilter)
+      params.set("item_type", "Phone")
 
-      const response = await fetch(`/api/phones?${params}`)
+      const response = await fetch(`/api/phones?${params}`, { cache: "no-store" })
       const data = await response.json()
       setPhones(data.phones || [])
       setTotal(data.total || 0)

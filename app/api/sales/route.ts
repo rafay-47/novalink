@@ -29,10 +29,14 @@ export async function GET(request: Request) {
 
   let sales = allSales
   if (category === "phones") {
-    sales = allSales.filter((s) => !s.phones?.item_type || s.phones.item_type === "Phone")
+    sales = allSales.filter(
+      (s) => !s.phones?.item_type || s.phones.item_type.toLowerCase() === "phone"
+    )
   } else if (category === "accessories") {
     sales = allSales.filter(
-      (s) => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"
+      (s) =>
+        s.phones?.item_type?.toLowerCase() === "adapter" ||
+        s.phones?.item_type?.toLowerCase() === "cable"
     )
   }
 

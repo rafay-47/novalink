@@ -146,10 +146,10 @@ export default function AccessoriesPage() {
   const fetchAccessories = async () => {
     setLoading(true)
     try {
-      const response = await fetch("/api/phones")
+      const response = await fetch("/api/phones?item_type=accessories&limit=1000", { cache: "no-store" })
       const data = await response.json()
       const accessoriesOnly = (data.phones || []).filter(
-        (p: Phone) => p.item_type === "Adapter" || p.item_type === "Cable"
+        (p: Phone) => p.item_type?.toLowerCase() === "adapter" || p.item_type?.toLowerCase() === "cable"
       )
       setItems(accessoriesOnly)
     } catch (error) {
@@ -302,7 +302,9 @@ export default function AccessoriesPage() {
   }
 
   const filteredItems = items.filter((item) => {
-    const matchesCategory = categoryFilter === "All" || item.item_type === categoryFilter
+    const matchesCategory =
+      categoryFilter === "All" ||
+      item.item_type?.toLowerCase() === categoryFilter.toLowerCase()
     const matchesSearch =
       item.brand.toLowerCase().includes(search.toLowerCase()) ||
       item.model.toLowerCase().includes(search.toLowerCase()) ||
@@ -465,7 +467,7 @@ export default function AccessoriesPage() {
                   categoryFilter === "Adapter" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
                 }`}
               >
-                Adapters ({items.filter((i) => i.item_type === "Adapter").length})
+                Adapters ({items.filter((i) => i.item_type?.toLowerCase() === "adapter").length})
               </button>
               <button
                 type="button"
@@ -474,7 +476,7 @@ export default function AccessoriesPage() {
                   categoryFilter === "Cable" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
                 }`}
               >
-                Cables ({items.filter((i) => i.item_type === "Cable").length})
+                Cables ({items.filter((i) => i.item_type?.toLowerCase() === "cable").length})
               </button>
             </div>
           </div>
@@ -522,7 +524,7 @@ export default function AccessoriesPage() {
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">{item.imei || "N/A"}</TableCell>
                       <TableCell>
-                        <Badge variant={item.item_type === "Adapter" ? "default" : "secondary"}>
+                        <Badge variant={item.item_type?.toLowerCase() === "adapter" ? "default" : "secondary"}>
                           {item.item_type || "Adapter"}
                         </Badge>
                       </TableCell>

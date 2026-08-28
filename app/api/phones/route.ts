@@ -47,10 +47,15 @@ export async function GET(request: Request) {
   }
 
   if (item_type) {
-    if (item_type === "accessories") {
-      query = query.in("item_type", ["Adapter", "Cable"])
-    } else if (item_type === "Phone") {
-      query = query.or("item_type.eq.Phone,item_type.is.null")
+    const itLower = item_type.toLowerCase()
+    if (itLower === "accessories") {
+      query = query.in("item_type", ["Adapter", "Cable", "adapter", "cable"])
+    } else if (itLower === "phone") {
+      query = query.or("item_type.eq.Phone,item_type.eq.phone,item_type.is.null")
+    } else if (itLower === "adapter") {
+      query = query.in("item_type", ["Adapter", "adapter"])
+    } else if (itLower === "cable") {
+      query = query.in("item_type", ["Cable", "cable"])
     } else {
       query = query.eq("item_type", item_type)
     }

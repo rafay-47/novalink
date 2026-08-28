@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const { data, count, error } = await supabase
     .from("purchases")
-    .select("*, phones(brand, model, imei)", { count: "exact" })
+    .select("*, phones(brand, model, imei, item_type)", { count: "exact" })
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         payment_method,
         notes,
       })
-      .select("*, phones(brand, model, imei)")
+      .select("*, phones(brand, model, imei, item_type)")
       .single()
 
     if (purchaseError) {
