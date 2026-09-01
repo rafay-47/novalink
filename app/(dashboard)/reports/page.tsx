@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -18,38 +20,24 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BarChart3, TrendingUp, TrendingDown, Package, DollarSign } from "lucide-react"
+import { BarChart3, TrendingUp, TrendingDown, Package, DollarSign, Calendar as CalendarIcon } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
-
-function getRangeStart(range: string): Date {
-  const now = new Date()
-  switch (range) {
-    case "today":
-      now.setHours(0, 0, 0, 0)
-      return now
-    case "week": {
-      const day = now.getDay()
-      const diff = day === 0 ? 6 : day - 1
-      now.setDate(now.getDate() - diff)
-      now.setHours(0, 0, 0, 0)
-      return now
-    }
-    case "month":
-      now.setDate(1)
-      now.setHours(0, 0, 0, 0)
-      return now
-    case "year":
-      now.setMonth(0, 1)
-      now.setHours(0, 0, 0, 0)
-      return now
-    case "all":
-    default:
-      return new Date(0)
-  }
-}
+import {
+  TimeframeRange,
+  TIMEFRAME_PRESET_OPTIONS,
+  getDateRangeBounds,
+  formatDateForInput,
+} from "@/lib/date-ranges"
 
 export default function ReportsPage() {
-  const [dateRange, setDateRange] = useState("month")
+  const [dateRange, setDateRange] = useState<TimeframeRange>("month")
+  const [specificDate, setSpecificDate] = useState(() => formatDateForInput(new Date()))
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return formatDateForInput(d)
+  })
+  const [endDate, setEndDate] = useState(() => formatDateForInput(new Date()))
   const [salesCategoryFilter, setSalesCategoryFilter] = useState<"all" | "phones" | "accessories">("all")
   const [loading, setLoading] = useState(true)
   const [salesData, setSalesData] = useState<any[]>([])
@@ -71,15 +59,15 @@ export default function ReportsPage() {
         fetch("/api/parties"),
       ])
 
-      const salesData = await salesRes.json()
-      const expensesData = await expensesRes.json()
-      const phonesData = await phonesRes.json()
-      const partiesData = await partiesRes.json()
+      const salesJson = await salesRes.json()
+      const expensesJson = await expensesRes.json()
+      const phonesJson = await phonesRes.json()
+      const partiesJson = await partiesRes.json()
 
-      setSalesData(salesData.sales || [])
-      setExpensesData(expensesData.expenses || [])
-      setPhonesList(phonesData.phones || [])
-      setPartyBalances(partiesData.parties || [])
+      setSalesData(salesJson.sales || [])
+      setExpensesData(expensesJson.expenses || [])
+      setPhonesList(phonesJson.phones || [])
+      setPartyBalances(partiesJson.parties || [])
     } catch (error) {
       console.error("Failed to fetch reports:", error)
     } finally {
@@ -87,16 +75,26 @@ export default function ReportsPage() {
     }
   }
 
-  const rangeStartDate = getRangeStart(dateRange)
+  const currentBounds = getDateRangeBounds(dateRange, {
+    specificDate,
+    startDate,
+    endDate,
+  })
 
   const periodSales = salesData.filter((s) => {
     if (!s.created_at) return true
-    return new Date(s.created_at) >= rangeStartDate
+    const saleTime = new Date(s.created_at).getTime()
+    if (currentBounds.from && saleTime < new Date(currentBounds.from).getTime()) return false
+    if (currentBounds.to && saleTime > new Date(currentBounds.to).getTime()) return false
+    return true
   })
 
   const periodExpenses = expensesData.filter((e) => {
     if (!e.created_at) return true
-    return new Date(e.created_at) >= rangeStartDate
+    const expTime = new Date(e.created_at).getTime()
+    if (currentBounds.from && expTime < new Date(currentBounds.from).getTime()) return false
+    if (currentBounds.to && expTime > new Date(currentBounds.to).getTime()) return false
+    return true
   })
 
   const filteredSalesData = periodSales.filter((sale) => {
@@ -107,12 +105,25 @@ export default function ReportsPage() {
   })
 
   const totalSales = periodSales.reduce((sum, s) => sum + (s.sale_price || 0), 0)
+  const isAccessory = (s: any) => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"
+
+  const accessorySales = periodSales
+    .filter(isAccessory)
+    .reduce((sum, s) => sum + (s.sale_price || 0), 0)
+  const phoneSales = periodSales
+    .filter((s) => !isAccessory(s))
+    .reduce((sum, s) => sum + (s.sale_price || 0), 0)
+
+  const phoneSalesCount = periodSales.filter((s) => !isAccessory(s)).length
+  const accessorySalesCount = periodSales.filter(isAccessory).length
+
   const accessoryProfit = periodSales
-    .filter((s) => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable")
+    .filter(isAccessory)
     .reduce((sum, s) => sum + (s.profit || 0), 0)
   const totalProfit = periodSales
-    .filter((s) => !(s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable"))
+    .filter((s) => !isAccessory(s))
     .reduce((sum, s) => sum + (s.profit || 0), 0)
+
   const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.amount, 0)
   const netProfit = totalProfit + accessoryProfit - totalExpenses
 
@@ -121,26 +132,74 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold">Reports</h1>
           <p className="text-sm text-muted-foreground">Business analytics and insights</p>
         </div>
-        <Select value={dateRange} onValueChange={setDateRange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="year">This Year</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={dateRange} onValueChange={(val: TimeframeRange) => setDateRange(val)}>
+            <SelectTrigger className="w-full sm:w-[170px]">
+              <SelectValue placeholder="Select timeframe" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEFRAME_PRESET_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {dateRange === "specific_date" && (
+            <Input
+              type="date"
+              value={specificDate}
+              onChange={(e) => setSpecificDate(e.target.value)}
+              className="w-full sm:w-[160px] h-9 text-sm"
+              aria-label="Select specific date"
+            />
+          )}
+
+          {dateRange === "custom" && (
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground font-medium">From:</span>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full sm:w-[145px] h-9 text-sm"
+                  aria-label="Start Date"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground font-medium">To:</span>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full sm:w-[145px] h-9 text-sm"
+                  aria-label="End Date"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs">
+        <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-2.5 bg-muted/40 font-normal">
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>
+            Report window: <strong className="font-semibold text-foreground">{currentBounds.label}</strong>
+          </span>
+        </Badge>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
+        {/* Total Sales Card with separate Phones and Accessories breakdown + units */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
@@ -148,35 +207,47 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">{formatCurrency(totalSales)}</div>
-            <p className="text-xs text-muted-foreground">{salesData.length} transactions</p>
+            <p className="text-xs text-muted-foreground">
+              Phones: <span className="font-medium text-foreground">{formatCurrency(phoneSales)}</span> ({phoneSalesCount} sold)
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Adapters & Cables: <span className="font-medium text-foreground">{formatCurrency(accessorySales)}</span> ({accessorySalesCount} sold)
+            </p>
           </CardContent>
         </Card>
 
+        {/* Total Profit Card with separate Phones and Accessories breakdown + units */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold">{formatCurrency(totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">phones gross profit</p>
+            <div className="text-xl font-bold text-green-600">
+              {formatCurrency(totalProfit + accessoryProfit)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Phones: <span className="font-medium text-foreground">{formatCurrency(totalProfit)}</span> ({phoneSalesCount} sold)
+            </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Adapters & Cables: <span className="font-medium">{formatCurrency(accessoryProfit)}</span>
+              Adapters & Cables: <span className="font-medium text-foreground">{formatCurrency(accessoryProfit)}</span> ({accessorySalesCount} sold)
             </p>
           </CardContent>
         </Card>
 
+        {/* Total Expenses Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold">{formatCurrency(totalExpenses)}</div>
-            <p className="text-xs text-muted-foreground">{expensesData.length} transactions</p>
+            <div className="text-xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
+            <p className="text-xs text-muted-foreground">{periodExpenses.length} transactions</p>
           </CardContent>
         </Card>
 
+        {/* Net Profit Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
@@ -211,7 +282,7 @@ export default function ReportsPage() {
                     salesCategoryFilter === "all" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
                   }`}
                 >
-                  All Items ({salesData.length})
+                  All Items ({periodSales.length})
                 </button>
                 <button
                   type="button"
@@ -220,7 +291,7 @@ export default function ReportsPage() {
                     salesCategoryFilter === "phones" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
                   }`}
                 >
-                  Phones ({salesData.filter(s => !s.phones?.item_type || s.phones?.item_type === "Phone").length})
+                  Phones ({periodSales.filter(s => !s.phones?.item_type || s.phones?.item_type === "Phone").length})
                 </button>
                 <button
                   type="button"
@@ -229,7 +300,7 @@ export default function ReportsPage() {
                     salesCategoryFilter === "accessories" ? "bg-background shadow text-foreground font-semibold" : "text-muted-foreground"
                   }`}
                 >
-                  Adapters & Cables ({salesData.filter(s => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable").length})
+                  Adapters & Cables ({periodSales.filter(s => s.phones?.item_type === "Adapter" || s.phones?.item_type === "Cable").length})
                 </button>
               </div>
             </CardHeader>
@@ -271,7 +342,7 @@ export default function ReportsPage() {
                           </TableCell>
                           <TableCell>{sale.customer_name || "Walk-in"}</TableCell>
                           <TableCell className="font-medium">{formatCurrency(sale.sale_price)}</TableCell>
-                          <TableCell className={sale.profit >= 0 ? "text-green-600" : "text-red-600"}>
+                          <TableCell className={(sale.profit || 0) >= 0 ? "text-green-600" : "text-red-600"}>
                             {formatCurrency(sale.profit || 0)}
                           </TableCell>
                           <TableCell>{sale.payment_method}</TableCell>
